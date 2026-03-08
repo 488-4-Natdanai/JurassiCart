@@ -261,7 +261,9 @@ class ViewDino(QMainWindow):
 
 
 def main():
+    sys.argv += ['-platform', 'windows:darkmode=1']
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     window = ViewDino()
     window.show()
     sys.exit(app.exec())
