@@ -6,8 +6,8 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
 dir = os.path.dirname(os.path.abspath(__file__))
-font_id = QFontDatabase.addApplicationFont(os.path.join(dir, "dino2.png"))
-font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+#font_id = QFontDatabase.addApplicationFont(os.path.join(dir, "DinopiaRegular-mLrO9.otf"))
+#font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
 dino_logo = os.path.join(dir, "dino2.png")
 class MainWindow(QMainWindow):
     def __init__(self):
