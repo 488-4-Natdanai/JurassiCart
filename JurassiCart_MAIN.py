@@ -5,16 +5,10 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
     QSpinBox,QPushButton, QDialog, QMessageBox, QScrollArea,QFrame, QSizePolicy, QToolBar)
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
+from view import ViewDino
 dir = os.path.dirname(os.path.abspath(__file__))
-<<<<<<< Updated upstream
-#font_id = QFontDatabase.addApplicationFont(os.path.join(dir, "DinopiaRegular-mLrO9.otf"))
-#font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
-=======
-font_path = os.path.join(dir, "DinopiaRegular-mLrO9.otf")
-font_id = QFontDatabase.addApplicationFont(font_path)
-font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
->>>>>>> Stashed changes
-dino_logo = os.path.join(dir, "dino2.png")
+dino_logo = os.path.join(dir, "resorces","dino2.png")
+juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -23,7 +17,9 @@ class MainWindow(QMainWindow):
         self.resize(1280, 720)
         self.create_menu()
         self.create_toolbar()
-
+        self.view = ViewDino()
+        self.setCentralWidget(self.view)
+        
     def create_menu(self):
 
         #Edit menu
@@ -53,13 +49,13 @@ class MainWindow(QMainWindow):
 
         create_store = QAction("Create store", self)
         create_store.triggered.connect(lambda : print("create store"))
-        store_menu.addAction(go_back)
+        store_menu.addAction(create_store)
 
-        stock = QAction("Go forward", self)
+        stock = QAction("Stock", self)
         stock.triggered.connect(lambda : print("go stock"))
         store_menu.addAction(stock)
 
-        add_stock = QAction("Go forward", self)
+        add_stock = QAction("Add stock", self)
         add_stock.triggered.connect(lambda : print("go add_stock"))
         store_menu.addAction(add_stock)
 
@@ -70,7 +66,7 @@ class MainWindow(QMainWindow):
         myacc.triggered.connect(lambda : print("create store"))
         acc_menu.addAction(myacc)
 
-        cart = QAction("Go forward", self)
+        cart = QAction("My Cart", self)
         cart.triggered.connect(lambda : print("go cart"))
         acc_menu.addAction(cart)
     def create_toolbar(self):
@@ -85,15 +81,34 @@ class MainWindow(QMainWindow):
         """)
 
         container = QWidget()
-        layout = QHBoxLayout(toolbar)
+        layout = QHBoxLayout(container)
         layout.setContentsMargins(20, 8, 20, 8)
         layout.setSpacing(15)
 
+        # Icon buttons
+        icon_style = """
+            QPushButton {
+                color: white; font-size: 40px;
+                background: transparent; border: none; padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255,255,255,0.2);
+                border-radius: 20px;
+            }
+        """
         # Logo
-        self.name_btn = QPushButton("🦕  JurassiCart")
+        self.logo = QPushButton()
+        self.logo.setIcon(QIcon(juras_logo))
+        self.logo.setIconSize(QSize(40,40))
+
+        self.name_btn = QPushButton("JurassiCart")
+        font_path = os.path.join(dir, "resorces","DinopiaRegular-mLrO9.otf")
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        self.name_btn.setFont(QFont(font_family, 12))
         self.name_btn.setStyleSheet("""
             QPushButton {
-                color: white; font-size: 20px; font-weight: bold;
+                color: white; font-size: 30px; font-weight: bold;
                 background: transparent; border: none;
             }
             QPushButton:hover { color: #ccffcc; }
@@ -121,28 +136,37 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        search_icon = QLabel("🔍")
-        search_icon.setStyleSheet("background: transparent;")
+        search_icon = QPushButton()
+        search_icon.setIcon(QIcon(os.path.join(dir, "resorces","search.png")))
+        search_icon.clicked.connect(lambda : print("Search"))
+        search_icon.setStyleSheet("background: #999999;")
+        search_icon.setFixedSize(44, 44)
+        search_icon.setIconSize(QSize(24,24))
+        search_icon.setStyleSheet("""
+            QPushButton {
+                color: white; font-size: 40px;
+                background: transparent; border: none; padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #999999;
+                border-radius: 22px;
+            }
+        """)
 
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(search_icon)
 
-        # Icon buttons
-        icon_style = """
-            QPushButton {
-                color: white; font-size: 22px;
-                background: transparent; border: none; padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255,255,255,0.2);
-                border-radius: 20px;
-            }
-        """
-        self.filter_btn  = QPushButton("⧩")
-        self.cart_btn    = QPushButton("🛒")
-        self.profile_btn = QPushButton("👤")
+        self.filter_btn  = QPushButton()
+        self.filter_btn.setIcon(QIcon(os.path.join(dir, "resorces","filter.png")))
+        self.filter_btn.setIconSize(QSize(24,24))
+        self.cart_btn    = QPushButton()
+        self.cart_btn.setIcon(QIcon(os.path.join(dir, "resorces","cart.png")))
+        self.cart_btn.setIconSize(QSize(40,40))
+        self.profile_btn = QPushButton()
+        self.profile_btn.setIcon(QIcon(os.path.join(dir, "resorces","user.png")))
+        self.profile_btn.setIconSize(QSize(40,40))
 
-        for btn in [self.filter_btn, self.cart_btn, self.profile_btn]:
+        for btn in [self.logo, self.filter_btn, self.cart_btn, self.profile_btn]:
             btn.setFixedSize(44, 44)
             btn.setStyleSheet(icon_style)
 
@@ -150,6 +174,7 @@ class MainWindow(QMainWindow):
         self.cart_btn.clicked.connect(lambda: print("Cart"))
         self.profile_btn.clicked.connect(lambda: print("Profile"))
 
+        layout.addWidget(self.logo)
         layout.addWidget(self.name_btn)
         layout.addWidget(search_container, stretch=1)
         layout.addWidget(self.filter_btn)
@@ -169,7 +194,6 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setWindowIcon(QIcon(dino_logo))
-
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

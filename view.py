@@ -8,109 +8,16 @@ from PySide6.QtGui import QFont, QPixmap, QColor
 import sys
 
 
-class ViewDino(QMainWindow):
+class ViewDino(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JurassiCart")
-        self.setGeometry(250, 100, 1260, 650)
-        self.setStyleSheet("background-color: #f0f0f0;")
 
         # Central widget
         central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        self.main_layout = QVBoxLayout(central_widget)
+        self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
-
-        self.build_menu()
-        self.build_header()
         self.build_body()
-
-    # ─── MENU BAR ────────────────────────────────────────────────
-    def build_menu(self):
-        self.menuBar().addMenu("Edit")
-        self.menuBar().addMenu("Navigation")
-        self.menuBar().addMenu("Store")
-        self.menuBar().addMenu("Account")
-
-    # ─── HEADER ──────────────────────────────────────────────────
-    def build_header(self):
-        header = QWidget()
-        header.setFixedHeight(70)
-        header.setStyleSheet("background-color: #1a6e1a;")
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(20, 8, 20, 8)
-        layout.setSpacing(15)
-
-        # Logo
-        self.logo_btn = QPushButton("🦕  JurassiCart")
-        self.logo_btn.setStyleSheet("""
-            QPushButton {
-                color: white; font-size: 20px; font-weight: bold;
-                background: transparent; border: none;
-            }
-            QPushButton:hover { color: #ccffcc; }
-        """)
-
-        # Search bar
-        search_container = QWidget()
-        search_container.setStyleSheet("""
-            QWidget {
-                background: white;
-                border-radius: 20px;
-            }
-        """)
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(15, 0, 10, 0)
-        search_layout.setSpacing(5)
-
-        self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Search")
-        self.search_bar.setFixedHeight(40)
-        self.search_bar.setStyleSheet("""
-            QLineEdit {
-                border: none; background: transparent;
-                font-size: 14px;
-            }
-        """)
-
-        search_icon = QLabel("🔍")
-        search_icon.setStyleSheet("background: transparent;")
-
-        search_layout.addWidget(self.search_bar)
-        search_layout.addWidget(search_icon)
-
-        # Icon buttons
-        icon_style = """
-            QPushButton {
-                color: white; font-size: 22px;
-                background: transparent; border: none; padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255,255,255,0.2);
-                border-radius: 20px;
-            }
-        """
-        self.filter_btn  = QPushButton("⧩")
-        self.cart_btn    = QPushButton("🛒")
-        self.profile_btn = QPushButton("👤")
-
-        for btn in [self.filter_btn, self.cart_btn, self.profile_btn]:
-            btn.setFixedSize(44, 44)
-            btn.setStyleSheet(icon_style)
-
-        self.filter_btn.clicked.connect(lambda: print("Filter"))
-        self.cart_btn.clicked.connect(lambda: print("Cart"))
-        self.profile_btn.clicked.connect(lambda: print("Profile"))
-
-        layout.addWidget(self.logo_btn)
-        layout.addWidget(search_container, stretch=1)
-        layout.addWidget(self.filter_btn)
-        layout.addWidget(self.cart_btn)
-        layout.addWidget(self.profile_btn)
-
-        self.main_layout.addWidget(header)
 
     # ─── BODY ────────────────────────────────────────────────────
     def build_body(self):
@@ -258,17 +165,3 @@ class ViewDino(QMainWindow):
             "border: 3px solid transparent", "border: 3px solid white"
         ))
         print(f"Variant selected: {color}")
-
-
-def main():
-    sys.argv += ['-platform', 'windows:darkmode=1']
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    window = ViewDino()
-    window.show()
-    sys.exit(app.exec())
-    
-
-
-if __name__ == "__main__":
-    main()
