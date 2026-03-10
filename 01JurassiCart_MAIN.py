@@ -6,8 +6,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
 dir = os.path.dirname(os.path.abspath(__file__))
+<<<<<<< Updated upstream
 #font_id = QFontDatabase.addApplicationFont(os.path.join(dir, "DinopiaRegular-mLrO9.otf"))
 #font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+=======
+font_path = os.path.join(dir, "DinopiaRegular-mLrO9.otf")
+font_id = QFontDatabase.addApplicationFont(font_path)
+font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+>>>>>>> Stashed changes
 dino_logo = os.path.join(dir, "dino2.png")
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -46,7 +52,7 @@ class MainWindow(QMainWindow):
         store_menu = self.menuBar().addMenu("Store")
 
         create_store = QAction("Create store", self)
-        go_back.triggered.connect(lambda : print("create store"))
+        create_store.triggered.connect(lambda : print("create store"))
         store_menu.addAction(go_back)
 
         stock = QAction("Go forward", self)
