@@ -9,6 +9,13 @@ from view import ViewDino
 dir = os.path.dirname(os.path.abspath(__file__))
 dino_logo = os.path.join(dir, "resorces","dino2.png")
 juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
+
+class account(QWidget):
+    def __init__(self):
+        super().__init__()
+
+    def _build_ui(self):
+        pass #สร้าง UI ตรงนี้เลยนะ 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -17,8 +24,6 @@ class MainWindow(QMainWindow):
         self.resize(1280, 720)
         self.create_menu()
         self.create_toolbar()
-        self.view = ViewDino()
-        self.setCentralWidget(self.view)
         
     def create_menu(self):
 
@@ -69,6 +74,7 @@ class MainWindow(QMainWindow):
         cart = QAction("My Cart", self)
         cart.triggered.connect(lambda : print("go cart"))
         acc_menu.addAction(cart)
+        
     def create_toolbar(self):
         toolbar = QToolBar("TopBar")
         toolbar.setMovable(False)
