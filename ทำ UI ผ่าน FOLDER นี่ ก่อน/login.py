@@ -110,7 +110,7 @@ class login(QWidget):
         }
         """)
 
-        signup = QLabel("Don't have an account? <a href='#'>SIGN IN</a>")
+        signup = QLabel("Don't have an account? <a href='#'>REGISTER</a>")
         signup.setAlignment(Qt.AlignCenter)
         signup.setTextInteractionFlags(Qt.TextBrowserInteraction)
         signup.setOpenExternalLinks(False)

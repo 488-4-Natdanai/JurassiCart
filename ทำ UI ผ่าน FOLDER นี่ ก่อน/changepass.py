@@ -25,6 +25,7 @@ class MainWindow(QMainWindow):
         self.resize(1280, 720)
         self.create_menu()
         self.create_toolbar()
+        self.setCentralWidget(change_pass())
         
     def create_menu(self):
 

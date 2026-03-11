@@ -296,8 +296,6 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(container)
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
-
-
 def main():
 
     myappid = "dme.jurassicart.app"
