@@ -16,6 +16,7 @@ class account(QWidget):
 
     def _build_ui(self):
         pass #สร้าง UI ตรงนี้เลยนะ 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -191,7 +192,6 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(container)
 
         self.addToolBar(Qt.TopToolBarArea, toolbar)
-
 def main():
     myappid = "dme.jurassicart.app"
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
