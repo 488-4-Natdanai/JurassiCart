@@ -67,6 +67,8 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(p)
 
         self.stack.setCurrentWidget(self.home)
+        self.login.switch_to_register.connect(lambda: self.go(self.register))
+        self.register.switch_to_login.connect(lambda: self.go(self.login))
 
 
     # ─────────────────────────────
@@ -152,8 +154,8 @@ class MainWindow(QMainWindow):
 
         acc_menu = self.menuBar().addMenu("Account")
 
-        myacc = QAction("My account", self)
-        myacc.triggered.connect(lambda: self.go(self.profile))
+        myacc = QAction("My profile", self)
+        myacc.triggered.connect(lambda: self.go(self.login))
         acc_menu.addAction(myacc)
 
         cart_btn = QAction("My Cart", self)
@@ -283,7 +285,7 @@ class MainWindow(QMainWindow):
         search_icon.clicked.connect(lambda: self.go(self.search))
 
         self.cart_btn.clicked.connect(lambda: self.go(self.cart))
-        self.profile_btn.clicked.connect(lambda: self.go(self.profile))
+        self.profile_btn.clicked.connect(lambda: self.go(self.login))
 
 
         layout.addWidget(self.logo)
