@@ -5,11 +5,12 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
     QSpinBox,QPushButton, QDialog, QMessageBox, QScrollArea,QFrame, QSizePolicy, QToolBar)
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
+from view import ViewDino
 dir = os.path.dirname(os.path.abspath(__file__))
 dino_logo = os.path.join(dir, "resorces","dino2.png")
 juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
 
-class addstock(QWidget):
+class change_pass(QWidget):
     def __init__(self):
         super().__init__()
 

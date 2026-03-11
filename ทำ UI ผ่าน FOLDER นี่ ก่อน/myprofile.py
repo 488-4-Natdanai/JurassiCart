@@ -10,7 +10,21 @@ dir = os.path.dirname(os.path.abspath(__file__))
 dino_logo = os.path.join(dir, "resorces","dino2.png")
 juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
 
-class account(QWidget):
+class profile(QWidget):
+    def __init__(self):
+        super().__init__()
+
+    def _build_ui(self):
+        pass #สร้าง UI ตรงนี้เลยนะ 
+
+class wallet(QWidget):
+    def __init__(self):
+        super().__init__()
+
+    def _build_ui(self):
+        pass #สร้าง UI ตรงนี้เลยนะ 
+
+class change_pass(QWidget):
     def __init__(self):
         super().__init__()
 
