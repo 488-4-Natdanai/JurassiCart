@@ -17,20 +17,6 @@ class profile(QWidget):
     def _build_ui(self):
         pass #สร้าง UI ตรงนี้เลยนะ 
 
-class wallet(QWidget):
-    def __init__(self):
-        super().__init__()
-
-    def _build_ui(self):
-        pass #สร้าง UI ตรงนี้เลยนะ 
-
-class change_pass(QWidget):
-    def __init__(self):
-        super().__init__()
-
-    def _build_ui(self):
-        pass #สร้าง UI ตรงนี้เลยนะ 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -39,6 +25,7 @@ class MainWindow(QMainWindow):
         self.resize(1280, 720)
         self.create_menu()
         self.create_toolbar()
+        self.setCentralWidget(profile())
         
     def create_menu(self):
 
