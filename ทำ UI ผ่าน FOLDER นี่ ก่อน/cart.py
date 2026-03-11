@@ -15,14 +15,7 @@ class cart(QWidget):
 
     def _build_ui(self):
         pass #สร้าง UI ตรงนี้เลยนะ 
-
-class checkout(QWidget):
-    def __init__(self):
-        super().__init__()
-
-    def _build_ui(self):
-        pass #สร้าง UI ตรงนี้เลยนะ 
-
+    
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
