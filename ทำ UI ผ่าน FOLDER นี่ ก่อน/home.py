@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
 dir = os.path.dirname(os.path.abspath(__file__))
-<<<<<<< Updated upstream:ทำ UI ผ่าน FOLDER นี่ ก่อน/home.py
 dino_logo = os.path.join(dir, "resorces","dino2.png")
 juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
 
@@ -17,17 +16,6 @@ class home(QWidget):
     def _build_ui(self):
         pass #สร้าง UI ตรงนี้เลยนะ 
 
-=======
-# font_path = os.path.join(dir, "DinopiaRegular-mLrO9.otf") 
-# font_id = QFontDatabase.addApplicationFont(font_path) 
-# if font_id == -1:
-#     print("Font load failed:", font_path)
-#     font_family = None
-# else:
-#     font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
-#     print("Font loaded:", font_family)
-dino_logo = os.path.join(dir, "dino2.png")
->>>>>>> Stashed changes:01JurassiCart_MAIN.py
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -66,11 +54,7 @@ class MainWindow(QMainWindow):
 
         create_store = QAction("Create store", self)
         create_store.triggered.connect(lambda : print("create store"))
-<<<<<<< Updated upstream:ทำ UI ผ่าน FOLDER นี่ ก่อน/home.py
         store_menu.addAction(create_store)
-=======
-        store_menu.addAction(go_back)
->>>>>>> Stashed changes:01JurassiCart_MAIN.py
 
         stock = QAction("Stock", self)
         stock.triggered.connect(lambda : print("go stock"))
