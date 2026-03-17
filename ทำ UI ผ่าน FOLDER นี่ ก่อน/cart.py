@@ -158,7 +158,7 @@ class MainWindow(QMainWindow):
                 border-radius: 22px;
             }
         """)
-
+        
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(search_icon)
 
