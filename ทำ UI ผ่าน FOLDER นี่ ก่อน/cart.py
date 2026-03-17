@@ -73,19 +73,19 @@ class CartItemRow(QFrame):
 
         lbl_name = QLabel(self.item["name"])
         lbl_name.setFont(QFont("Segoe UI", 13, QFont.Bold))
-        lbl_name.setStyleSheet("color:#111;")
+        lbl_name.setStyleSheet("color:#111; background:transparent;")
         info.addWidget(lbl_name)
 
         lbl_type = QLabel(self.item["type"])
         lbl_type.setFont(QFont("Segoe UI", 9))
-        lbl_type.setStyleSheet("color:#555;")
+        lbl_type.setStyleSheet("color:#555; background:transparent;")
         info.addWidget(lbl_type)
 
         variant_row = QHBoxLayout()
         variant_row.setSpacing(6)
         variant_lbl = QLabel("Variant")
         variant_lbl.setFont(QFont("Segoe UI", 9))
-        variant_lbl.setStyleSheet("color:#555;")
+        variant_lbl.setStyleSheet("color:#555; background:transparent;")
         variant_row.addWidget(variant_lbl)
 
         color_box = QLabel()
