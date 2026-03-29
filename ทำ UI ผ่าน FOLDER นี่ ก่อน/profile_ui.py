@@ -4,10 +4,13 @@ import os
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QFrame, QStackedWidget,
-    QDateEdit,
+    QDateEdit, QDialog, QCheckBox
 )
-from PySide6.QtCore import Qt, Signal, QDate, QPoint
-from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QBrush, QPolygon
+from PySide6.QtCore import Qt, Signal, QDate, QPoint, QSize
+from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QBrush, QPolygon, QPen, QIcon
+
+DINO_LOGO_PATH = "dino_logo.png"    
+USER_AVATAR_PATH = "user_avatar.png" 
 
 
 # ─────────────────────────────────────────────
@@ -29,6 +32,34 @@ def init_arrow():
     path = os.path.join(tempfile.gettempdir(), "jc_arrow.png").replace("\\", "/")
     px.save(path)
     ARROW_PATH = path
+
+
+# ─────────────────────────────────────────────
+# Helper: create simple icon with QPainter
+# (Used for icons without provided images like 'back' and 'cart')
+# ─────────────────────────────────────────────
+def create_simple_icon(type, size=32, color="#ffffff"):
+    px = QPixmap(size, size)
+    px.fill(Qt.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor(color), 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+
+    if type == "back":
+        p.drawPolyline([QPoint(size * 0.7, size * 0.3),
+                        QPoint(size * 0.3, size * 0.5),
+                        QPoint(size * 0.7, size * 0.7)])
+    elif type == "cart":
+        p.drawRect(int(size * 0.2), int(size * 0.35), int(size * 0.6), int(size * 0.5))
+        p.drawEllipse(int(size * 0.25), int(size * 0.85), 4, 4)
+        p.drawEllipse(int(size * 0.65), int(size * 0.85), 4, 4)
+        p.drawPolyline([QPoint(size * 0.2, size * 0.35),
+                        QPoint(size * 0.1, size * 0.15),
+                        QPoint(size * 0.3, size * 0.15)])
+
+    p.end()
+    return QIcon(px)
 
 
 # ─────────────────────────────────────────────
@@ -106,28 +137,6 @@ def date_style():
         width: 12px; height: 8px;
     }}
 """
-
-
-# ─────────────────────────────────────────────
-# Helper: circular avatar pixmap
-# ─────────────────────────────────────────────
-def make_avatar_pixmap(size=120):
-    px = QPixmap(size, size)
-    px.fill(Qt.transparent)
-    p = QPainter(px)
-    p.setRenderHint(QPainter.Antialiasing)
-    p.setBrush(QBrush(QColor("#bdbdbd")))
-    p.setPen(Qt.NoPen)
-    p.drawEllipse(0, 0, size, size)
-    head_r = size // 5
-    p.setBrush(QBrush(QColor("#9e9e9e")))
-    p.drawEllipse(size // 2 - head_r, size // 5, head_r * 2, head_r * 2)
-    body_w = int(size * 0.55)
-    body_h = int(size * 0.35)
-    p.drawEllipse((size - body_w) // 2, int(size * 0.52), body_w, body_h)
-    p.end()
-    return px
-
 
 # ─────────────────────────────────────────────
 # Tab Bar
@@ -212,12 +221,12 @@ class ProfilePage(QWidget):
         row.addWidget(username_lbl); row.addStretch()
         form_layout.addLayout(row)
 
-        # Editable fields
         for label_text, placeholder in [
             ("Name",         "Enter your name"),
             ("Email",        "Enter your email"),
-            ("Phone Number", "Enter phone number"),
+            ("Phone Number", "Enter your phone number"),
         ]:
+            
             row = QHBoxLayout(); row.setSpacing(12)
             lbl = QLabel(label_text); lbl.setFixedWidth(label_width)
             lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -231,7 +240,6 @@ class ProfilePage(QWidget):
             row.addWidget(field); row.addStretch()
             form_layout.addLayout(row)
 
-        # Gender
         row = QHBoxLayout(); row.setSpacing(12)
         lbl = QLabel("Gender"); lbl.setFixedWidth(label_width)
         lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -282,7 +290,19 @@ class ProfilePage(QWidget):
         avatar_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         avatar_layout.setSpacing(14)
         avatar_lbl = QLabel()
-        avatar_lbl.setPixmap(make_avatar_pixmap(120))
+        try:
+            avatar_pixmap = QPixmap(USER_AVATAR_PATH).scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            if avatar_pixmap.isNull():
+                print(f"Error: Could not load user avatar from {USER_AVATAR_PATH}")
+                px = QPixmap(120, 120); px.fill(QColor("#ddd"))
+                avatar_lbl.setPixmap(px)
+            else:
+                avatar_lbl.setPixmap(avatar_pixmap)
+        except Exception as e:
+            print(f"Error loading user avatar: {e}")
+            px = QPixmap(120, 120); px.fill(QColor("#ddd"))
+            avatar_lbl.setPixmap(px)
+
         avatar_lbl.setAlignment(Qt.AlignCenter)
         avatar_layout.addWidget(avatar_lbl)
         select_btn = QPushButton("Select Image")
@@ -295,6 +315,130 @@ class ProfilePage(QWidget):
 
         root.addLayout(avatar_layout, stretch=1)
 
+# ─────────────────────────────────────────────
+# Popup — Purchase Info
+# ─────────────────────────────────────────────
+class PurchaseDialog(QDialog):
+    def __init__(self, amount, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Purchase info")
+        self.resize(420, 320)
+        self.setStyleSheet("background: #f7f7f7;")
+        self.setWindowIcon(QIcon(DINO_LOGO_PATH))
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 20, 30, 20)
+        layout.setSpacing(10)
+
+        # Title
+        title = QLabel("PAYMENT")
+        title.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        title.setStyleSheet("color: #222;")
+        layout.addWidget(title)
+
+        # Method Label
+        lbl_method = QLabel("Please select a payment method")
+        lbl_method.setFont(QFont("Segoe UI", 9))
+        lbl_method.setStyleSheet("color: #333;")
+        layout.addWidget(lbl_method)
+
+        # Combo Box
+        self.combo = QComboBox()
+        self.combo.addItems(["Promptpay", "Credit / Debit Card", "Bank Transfer"])
+        self.combo.setFixedHeight(36)
+        self.combo.setFont(QFont("Segoe UI", 10))
+        self.combo.setStyleSheet(combo_style())
+        layout.addWidget(self.combo)
+
+        layout.addSpacing(10)
+
+        # Line 1
+        line1 = QFrame()
+        line1.setFrameShape(QFrame.HLine)
+        line1.setStyleSheet("color: #ccc;")
+        layout.addWidget(line1)
+
+        # Total
+        total_layout = QHBoxLayout()
+        lbl_total = QLabel("Total:")
+        lbl_total.setFont(QFont("Segoe UI", 12))
+        lbl_total.setStyleSheet("color: #222;")
+        
+        val_total = QLabel(f"${amount:,}")
+        val_total.setFont(QFont("Segoe UI", 12))
+        val_total.setStyleSheet("color: #222;")
+        val_total.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        
+        total_layout.addWidget(lbl_total)
+        total_layout.addWidget(val_total)
+        layout.addLayout(total_layout)
+
+        # Line 2
+        line2 = QFrame()
+        line2.setFrameShape(QFrame.HLine)
+        line2.setStyleSheet("color: #ccc;")
+        layout.addWidget(line2)
+
+        layout.addSpacing(5)
+
+        # Checkbox & Terms
+        agree_layout = QHBoxLayout()
+        self.checkbox = QCheckBox()
+        self.checkbox.setStyleSheet("""
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #555555;
+                background-color: #ffffff;
+                border-radius: 4px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #2e7d32;
+                background-color: #f5f5f5;
+                image: url(check.png); 
+            }
+        """)
+        self.checkbox.setCursor(Qt.PointingHandCursor)
+        
+        lbl_terms = QLabel("I agree to the terms of the <u>JurassiCart purchase agreement</u>")
+        lbl_terms.setFont(QFont("Segoe UI", 9))
+        lbl_terms.setStyleSheet("color: #222;")
+        
+        agree_layout.addWidget(self.checkbox)
+        agree_layout.addWidget(lbl_terms)
+        agree_layout.addStretch()
+        layout.addLayout(agree_layout)
+
+        layout.addSpacing(15)
+
+        # Purchase Button
+        btn_layout = QHBoxLayout()
+        self.btn_purchase = QPushButton("Purchase")
+        self.btn_purchase.setFixedSize(120, 38)
+        self.btn_purchase.setFont(QFont("Segoe UI", 11))
+        self.btn_purchase.setCursor(Qt.PointingHandCursor)
+        
+        self.btn_purchase.setEnabled(False) 
+        self.btn_purchase.setStyleSheet("""
+            QPushButton {
+                background: white; color: #222;
+                border: 1px solid #ddd; border-radius: 19px;
+            }
+            QPushButton:hover:enabled { background: #f0f0f0; border-color: #bbb; }
+            QPushButton:disabled { color: #aaa; background: #e0e0e0; border: none; }
+        """)
+        
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_purchase)
+        layout.addLayout(btn_layout)
+        layout.addStretch()
+
+        # Connect Events
+        self.checkbox.toggled.connect(self.btn_purchase.setEnabled)
+        self.btn_purchase.clicked.connect(self.accept)
+
+    def _on_check(self, state):
+        self.btn_purchase.setEnabled(state == Qt.Checked)
 
 # ─────────────────────────────────────────────
 # Page 1 — Wallet
@@ -303,6 +447,8 @@ class WalletPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: white;")
+        
+        self.current_balance = 0 
 
         root = QHBoxLayout(self)
         root.setContentsMargins(40, 30, 40, 30)
@@ -313,11 +459,14 @@ class WalletPage(QWidget):
 
         for amount in [5_000_000, 10_000_000, 50_000_000,
                        100_000_000, 500_000_000, 1_000_000_000]:
-            row = QHBoxLayout(); row.setSpacing(16)
+            row = QHBoxLayout()
+            row.setSpacing(16)
 
             label_frame = QFrame()
             label_frame.setStyleSheet("QFrame { background: #e8e8e8; border-radius: 21px; }")
-            label_frame.setFixedHeight(42); label_frame.setMinimumWidth(260)
+            label_frame.setFixedHeight(42)
+            label_frame.setMinimumWidth(260)
+            
             label_inner = QHBoxLayout(label_frame)
             label_inner.setContentsMargins(20, 0, 20, 0)
             lbl = QLabel(f"Add ${amount:,}")
@@ -331,24 +480,42 @@ class WalletPage(QWidget):
             add_btn.setFont(QFont("Segoe UI", 10, QFont.Bold))
             add_btn.setCursor(Qt.PointingHandCursor)
             add_btn.setStyleSheet(OVAL_BTN_GREEN.format(r=19))
-            row.addWidget(add_btn); row.addStretch()
+            
+            add_btn.clicked.connect(lambda checked=False, amt=amount: self._open_purchase_dialog(amt))
+            
+            row.addWidget(add_btn)
+            row.addStretch()
             left.addLayout(row)
 
         left.addStretch()
         root.addLayout(left, stretch=3)
 
         right = QVBoxLayout()
-        right.setAlignment(Qt.AlignTop); right.setSpacing(6)
+        right.setAlignment(Qt.AlignTop)
+        right.setSpacing(6)
+        
         t = QLabel("Wallet Balance")
-        t.setFont(QFont("Segoe UI", 11)); t.setStyleSheet("color:#555;")
+        t.setFont(QFont("Segoe UI", 11))
+        t.setStyleSheet("color:#555;")
         right.addWidget(t)
-        a = QLabel("$1,000,000,000")
-        a.setFont(QFont("Segoe UI", 26, QFont.Bold))
-        a.setStyleSheet("color:#2e7d32;")
-        right.addWidget(a)
+        
+        self.balance_lbl = QLabel(f"${self.current_balance:,}")
+        self.balance_lbl.setFont(QFont("Segoe UI", 26, QFont.Bold))
+        self.balance_lbl.setStyleSheet("color:#2e7d32;")
+        right.addWidget(self.balance_lbl)
+        
         right.addStretch()
         root.addLayout(right, stretch=2)
 
+    def _open_purchase_dialog(self, amount):
+        dialog = PurchaseDialog(amount, self)
+        
+        if dialog.exec() == QDialog.Accepted:
+            self.current_balance += amount
+            
+            self.balance_lbl.setText(f"${self.current_balance:,}")
+            
+            print(f"Purchased Done: ${self.current_balance:,}")
 
 # ─────────────────────────────────────────────
 # Page 2 — Change Password
@@ -411,10 +578,29 @@ class NavBar(QWidget):
         layout.setContentsMargins(12, 0, 16, 0)
         layout.setSpacing(10)
 
-        logo_lbl = QLabel("🦕 JurassiCart")
-        logo_lbl.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        logo_lbl.setStyleSheet("color: white; letter-spacing: 1px;")
-        layout.addWidget(logo_lbl)
+        logo_layout = QHBoxLayout()
+        logo_layout.setSpacing(8)
+        logo_icon = QLabel()
+        try:
+            dino_pixmap = QPixmap(DINO_LOGO_PATH).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            if dino_pixmap.isNull():
+                print(f"Error: Could not load dino logo from {DINO_LOGO_PATH}")
+                # ตัวสำรองหากโหลดภาพล้มเหลว
+                px = QPixmap(32, 32); px.fill(Qt.transparent)
+                logo_icon.setPixmap(px)
+            else:
+                logo_icon.setPixmap(dino_pixmap)
+        except Exception as e:
+            print(f"Error loading dino logo: {e}")
+            px = QPixmap(32, 32); px.fill(Qt.transparent)
+            logo_icon.setPixmap(px)
+
+        logo_layout.addWidget(logo_icon)
+        logo_text = QLabel("JurassiCart")
+        logo_text.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        logo_text.setStyleSheet("color: white; letter-spacing: 1px;")
+        logo_layout.addWidget(logo_text)
+        layout.addLayout(logo_layout)
         layout.addSpacing(10)
 
         search = QLineEdit()
@@ -429,17 +615,46 @@ class NavBar(QWidget):
         """)
         layout.addWidget(search, stretch=1)
 
-        for icon_text in ["⊲", "🛒", "👤"]:
-            btn = QPushButton(icon_text)
-            btn.setFixedSize(40, 40)
-            btn.setFont(QFont("Segoe UI", 16))
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton { background: transparent; color: white; border: none; }
-                QPushButton:hover { background: rgba(255,255,255,0.2); border-radius: 20px; }
-            """)
-            layout.addWidget(btn)
+        btn_style = """
+            QPushButton { background: transparent; color: white; border: none; }
+            QPushButton:hover { background: rgba(255,255,255,0.2); border-radius: 20px; }
+        """
 
+        filter_btn = QPushButton()
+        filter_btn.setFixedSize(40, 40)
+        filter_btn.setCursor(Qt.PointingHandCursor)
+        filter_btn.setIcon(QIcon("mdi_filter-outline.png")) 
+        filter_btn.setIconSize(QSize(24, 24)) 
+        filter_btn.setStyleSheet(btn_style)
+        layout.addWidget(filter_btn)
+
+        
+        cart_btn = QPushButton()
+        cart_btn.setFixedSize(40, 40)
+        cart_btn.setCursor(Qt.PointingHandCursor)
+        cart_btn.setIcon(QIcon("bx_cart.png")) 
+        cart_btn.setIconSize(QSize(26, 26)) 
+        cart_btn.setStyleSheet(btn_style)
+        layout.addWidget(cart_btn)
+
+       
+        profile_btn = QPushButton()
+        profile_btn.setFixedSize(40, 40)
+        profile_btn.setCursor(Qt.PointingHandCursor)
+        try:
+            profile_pixmap = QPixmap(USER_AVATAR_PATH).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            if profile_pixmap.isNull():
+                print(f"Error: Could not load user avatar for navbar from {USER_AVATAR_PATH}")
+                profile_btn.setIcon(QIcon())
+            else:
+                profile_btn.setIcon(QIcon(profile_pixmap))
+        except Exception as e:
+            print(f"Error loading user avatar for navbar: {e}")
+            profile_btn.setIcon(QIcon())
+
+        profile_btn.setIconSize(QSize(28, 28))
+        profile_btn.setStyleSheet(btn_style)
+        layout.addWidget(profile_btn)
 
 # ─────────────────────────────────────────────
 # Main Window
@@ -519,7 +734,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    init_arrow()          # สร้าง arrow image หลัง QApplication พร้อม
+    init_arrow()
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
