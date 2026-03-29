@@ -65,9 +65,9 @@ class MyProfile(QWidget):
         BTN_GREEN = """
         QPushButton {
             background:#0b7a12;
+            color:white;
             font-size: 20px;
             font-weight: bold;
-            color:white;
             border-radius:20px;
             padding:6px 14px;
         }
@@ -135,11 +135,22 @@ class MyProfile(QWidget):
             self.tabs.append(b)
             return b
 
-        tab_bar.addWidget(make_tab("Store Profile", 0))
-        tab_bar.addWidget(make_tab("Stock", 1))
-        tab_bar.addWidget(make_tab("Add Stock", 2))
+        tab_bar.addWidget(make_tab("My Profile", 0))
+        tab_bar.addWidget(make_tab("Wallet", 1))
+        tab_bar.addWidget(make_tab("Change Password", 2))
         tab_bar.addStretch()
 
+        logout = QPushButton("Logout")
+        logout.setStyleSheet("""
+            QPushButton {
+                background:red;
+                color:white;
+                border-radius:6px;
+                padding:6px 14px;
+            }
+            QPushButton:hover { background:#cc0000; }
+        """)
+        tab_bar.addWidget(logout)
 
         main.addLayout(tab_bar)
 
@@ -158,9 +169,9 @@ class MyProfile(QWidget):
         # ======================
         # PROFILE
         # ======================
-        storeprofile = QWidget()
-        storeprofile.setStyleSheet("background:transparent;")
-        p_layout = QHBoxLayout(storeprofile)
+        profile = QWidget()
+        profile.setStyleSheet("background:transparent;")
+        p_layout = QHBoxLayout(profile)
         p_layout.setSpacing(40)
 
         form = QFormLayout()
@@ -172,7 +183,23 @@ class MyProfile(QWidget):
             w.setStyleSheet(INPUT_STYLE)
             return w
 
-        form.addRow("Store name", input_line())
+        form.addRow("Username", QLabel("Jane Doe001"))
+        form.addRow("Name", input_line())
+        form.addRow("Email", input_line())
+        form.addRow("Phone Number", input_line())
+
+        gender = QComboBox()
+        gender.addItems(["Female", "Male"])
+        gender.setFixedHeight(36)
+        gender.setStyleSheet(COMBO_STYLE)
+        form.addRow("Gender", gender)
+
+        dob = QDateEdit()
+        dob.setCalendarPopup(True)
+        dob.setDate(QDate.currentDate())
+        dob.setFixedHeight(36)
+        dob.setStyleSheet(INPUT_STYLE)
+        form.addRow("Date of birth", dob)
 
         save = QPushButton("Save")
         save.setFixedSize(140, 42)
@@ -206,7 +233,7 @@ class MyProfile(QWidget):
         p_layout.addLayout(left, 3)
         p_layout.addLayout(right, 1)
 
-        self.stack.addWidget(storeprofile)
+        self.stack.addWidget(profile)
 
         # ======================
         # WALLET
