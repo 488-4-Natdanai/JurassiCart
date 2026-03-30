@@ -5,9 +5,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QDate, QPoint, QSize
 from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QBrush, QPolygon, QPen, QIcon
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import database as db
 
-DINO_LOGO_PATH = "dino_logo.png"    
-USER_AVATAR_PATH = "user_avatar.png" 
+_DIR = os.path.dirname(os.path.abspath(__file__))
+DINO_LOGO_PATH  = os.path.join(_DIR, "resorces", "dino2.png")
+USER_AVATAR_PATH = os.path.join(_DIR, "resorces", "user.png")
 
 # ─────────────────────────────────────────────
 # Helper: create simple icon with QPainter
@@ -172,6 +176,7 @@ class TabBar(QWidget):
 class ProfilePage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._user_id = None
         self.setStyleSheet("background: white;")
 
         root = QHBoxLayout(self)
@@ -188,18 +193,18 @@ class ProfilePage(QWidget):
         lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         lbl.setFont(QFont("Segoe UI", 10)); lbl.setStyleSheet("color:#333;")
         row.addWidget(lbl)
-        username_lbl = QLabel("Jane Doe001")
-        username_lbl.setFont(QFont("Segoe UI", 10, QFont.Bold))
-        username_lbl.setStyleSheet("color:#333;")
-        row.addWidget(username_lbl); row.addStretch()
+        self.username_lbl = QLabel("")
+        self.username_lbl.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        self.username_lbl.setStyleSheet("color:#333;")
+        row.addWidget(self.username_lbl); row.addStretch()
         form_layout.addLayout(row)
 
-        for label_text, placeholder in [
-            ("Name",         "Enter your name"),
-            ("Email",        "Enter your email"),
-            ("Phone Number", "Enter your phone number"),
+        self.fields = {}
+        for label_text, placeholder, key in [
+            ("Name",         "Enter your name",         "name"),
+            ("Email",        "Enter your email",        "email"),
+            ("Phone Number", "Enter your phone number", "phone"),
         ]:
-            
             row = QHBoxLayout(); row.setSpacing(12)
             lbl = QLabel(label_text); lbl.setFixedWidth(label_width)
             lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -210,6 +215,7 @@ class ProfilePage(QWidget):
             field.setFont(QFont("Segoe UI", 10))
             field.setFixedHeight(34); field.setMinimumWidth(260)
             field.setStyleSheet(INPUT_STYLE)
+            self.fields[key] = field
             row.addWidget(field); row.addStretch()
             form_layout.addLayout(row)
 
@@ -252,6 +258,7 @@ class ProfilePage(QWidget):
         save_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
         save_btn.setCursor(Qt.PointingHandCursor)
         save_btn.setStyleSheet(OVAL_BTN_GREEN.format(r=19))
+        save_btn.clicked.connect(self._on_save)
         save_row.addWidget(save_btn); save_row.addStretch()
         form_layout.addLayout(save_row)
         form_layout.addStretch()
@@ -287,6 +294,25 @@ class ProfilePage(QWidget):
         avatar_layout.addStretch()
 
         root.addLayout(avatar_layout, stretch=1)
+
+    def load_user(self, user: dict):
+        self._user_id = user["user_id"]
+        self.username_lbl.setText(user.get("username", ""))
+        self.fields["name"].setText(user.get("name", ""))
+        self.fields["email"].setText(user.get("email", ""))
+        self.fields["phone"].setText(user.get("phone", ""))
+
+    def _on_save(self):
+        if not self._user_id:
+            return
+        db.update_user(
+            self._user_id,
+            name=self.fields["name"].text().strip(),
+            email=self.fields["email"].text().strip(),
+            phone=self.fields["phone"].text().strip(),
+        )
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Saved", "Profile updated successfully.")
 
 # ─────────────────────────────────────────────
 # Popup — Purchase Info
@@ -420,8 +446,8 @@ class WalletPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: white;")
-        
-        self.current_balance = 0 
+        self._user_id = None
+        self.current_balance = 0
 
         root = QHBoxLayout(self)
         root.setContentsMargins(40, 30, 40, 30)
@@ -482,13 +508,17 @@ class WalletPage(QWidget):
 
     def _open_purchase_dialog(self, amount):
         dialog = PurchaseDialog(amount, self)
-        
         if dialog.exec() == QDialog.Accepted:
-            self.current_balance += amount
-            
+            if self._user_id:
+                self.current_balance = db.add_wallet(self._user_id, amount)
+            else:
+                self.current_balance += amount
             self.balance_lbl.setText(f"${self.current_balance:,}")
-            
-            print(f"Purchased Done: ${self.current_balance:,}")
+
+    def load_user(self, user: dict):
+        self._user_id = user["user_id"]
+        self.current_balance = int(user.get("wallet", 0))
+        self.balance_lbl.setText(f"${self.current_balance:,}")
 
 # ─────────────────────────────────────────────
 # Page 2 — Change Password
@@ -496,6 +526,7 @@ class WalletPage(QWidget):
 class ChangePasswordPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._user_id = None
         self.setStyleSheet("background: white;")
 
         layout = QVBoxLayout(self)
@@ -516,14 +547,46 @@ class ChangePasswordPage(QWidget):
             field.setFixedHeight(34); field.setMinimumWidth(280)
             field.setStyleSheet(INPUT_STYLE)
             row.addWidget(field); row.addStretch()
-            return row
+            return row, field
 
-        layout.addLayout(make_field("Current Password"))
-        layout.addSpacing(30)
-        layout.addLayout(make_field("New Password"))
-        layout.addSpacing(14)
-        layout.addLayout(make_field("Confirm Password"))
+        row0, self.f_current = make_field("Current Password")
+        layout.addLayout(row0)
         layout.addSpacing(20)
+
+        row1, self.f_new = make_field("New Password")
+        layout.addLayout(row1)
+        layout.addSpacing(14)
+
+        row2, self.f_confirm = make_field("Confirm Password")
+        layout.addLayout(row2)
+        layout.addSpacing(10)
+
+        # Forget password row
+        forget_row = QHBoxLayout()
+        forget_row.addSpacing(label_width + 12)
+        forget_lbl = QLabel('Forget password?  ')
+        forget_lbl.setFont(QFont("Segoe UI", 9))
+        forget_lbl.setStyleSheet("color:#555;")
+        contact_lbl = QLabel('<a href="https://jurassicart.com/contact" style="color:#1565c0;">contact us</a>')
+        contact_lbl.setFont(QFont("Segoe UI", 9))
+        contact_lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        contact_lbl.setOpenExternalLinks(False)   # กดแล้วไม่มีอะไรเกิดขึ้นก่อน
+        forget_row.addWidget(forget_lbl)
+        forget_row.addWidget(contact_lbl)
+        forget_row.addStretch()
+        layout.addLayout(forget_row)
+        layout.addSpacing(20)
+
+        # error label
+        self.error_lbl = QLabel("")
+        self.error_lbl.setAlignment(Qt.AlignLeft)
+        self.error_lbl.setStyleSheet("color:#cc0000; font-size:9pt;")
+        self.error_lbl.setVisible(False)
+        err_row = QHBoxLayout()
+        err_row.addSpacing(label_width + 12)
+        err_row.addWidget(self.error_lbl)
+        err_row.addStretch()
+        layout.addLayout(err_row)
 
         btn_row = QHBoxLayout()
         btn_row.addSpacing(label_width + 12)
@@ -532,9 +595,52 @@ class ChangePasswordPage(QWidget):
         confirm_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
         confirm_btn.setCursor(Qt.PointingHandCursor)
         confirm_btn.setStyleSheet(OVAL_BTN_GREEN.format(r=19))
+        confirm_btn.clicked.connect(self._on_confirm)
         btn_row.addWidget(confirm_btn); btn_row.addStretch()
         layout.addLayout(btn_row)
         layout.addStretch()
+
+    def load_user(self, user: dict):
+        self._user_id = user["user_id"]
+
+    def _on_confirm(self):
+        from PySide6.QtWidgets import QMessageBox
+        current  = self.f_current.text()
+        new_pw   = self.f_new.text()
+        confirm  = self.f_confirm.text()
+
+        if not current or not new_pw or not confirm:
+            self._show_error("All fields are required.")
+            return
+        if len(new_pw) < 6:
+            self._show_error("New password must be at least 6 characters.")
+            return
+        if new_pw != confirm:
+            self._show_error("New passwords do not match.")
+            return
+
+        # verify current password against DB
+        user = db.get_user(self._user_id) if self._user_id else None
+        if not user:
+            self._show_error("Session error. Please log in again.")
+            return
+
+        import hashlib
+        if user["password_hash"] != hashlib.sha256(current.encode()).hexdigest():
+            self._show_error("Current password is incorrect.")
+            return
+
+        # update password
+        import hashlib as _h
+        db.update_user(self._user_id,
+                       password_hash=_h.sha256(new_pw.encode()).hexdigest())
+        self.error_lbl.setVisible(False)
+        self.f_current.clear(); self.f_new.clear(); self.f_confirm.clear()
+        QMessageBox.information(self, "Success", "Password changed successfully.")
+
+    def _show_error(self, msg: str):
+        self.error_lbl.setText(msg)
+        self.error_lbl.setVisible(True)
 
 
 # ─────────────────────────────────────────────
@@ -681,3 +787,9 @@ class AccountPage(QWidget):
 
         # connect tab
         self.tab_bar.tab_changed.connect(self.stack.setCurrentIndex)
+
+    def load_user(self, user: dict):
+        """Called by MainWindow after login to populate profile data."""
+        self.stack.widget(0).load_user(user)   # ProfilePage
+        self.stack.widget(1).load_user(user)   # WalletPage
+        self.stack.widget(2).load_user(user)   # ChangePasswordPage

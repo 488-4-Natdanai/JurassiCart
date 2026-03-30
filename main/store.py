@@ -1,4 +1,5 @@
 import os
+import database as db
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QStackedWidget,
     QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
@@ -194,6 +195,9 @@ class StoreProfileTab(QWidget):
             return
         QMessageBox.information(self, "Saved", "Store profile saved successfully!")
 
+    def load_store(self, store: dict):
+        self.store_name.setText(store.get("store_name", ""))
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TAB 2 – Stock  (individual row widget)
@@ -285,11 +289,18 @@ class StockRow(QWidget):
 
 
 class StockTab(QWidget):
+    item_deleted = Signal()   # bubble up to home.refresh
+
     def __init__(self, stock_data: list, parent=None):
         super().__init__(parent)
         self._data = stock_data
+        self._store_id: str | None = None
         self.setStyleSheet("background: white;")
         self._build_ui()
+
+    def load_store(self, store_id: str):
+        self._store_id = store_id
+        self.refresh()
 
     def _build_ui(self):
         outer = QVBoxLayout(self)
@@ -313,14 +324,17 @@ class StockTab(QWidget):
         self.refresh()
 
     def refresh(self):
-        # clear
+        # reload from DB if we have a store_id, else use in-memory list
+        if self._store_id:
+            self._data = db.get_dinosaurs_by_store(self._store_id)
+
         while self._list_lay.count():
             item = self._list_lay.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         if not self._data:
-            empty = QLabel("Your stock is empty, Let's add something!")
+            empty = QLabel("Your stock is empty. Let's add something!")
             empty.setAlignment(Qt.AlignCenter)
             empty.setFont(QFont("", 13))
             self._list_lay.setAlignment(Qt.AlignCenter)
@@ -334,14 +348,18 @@ class StockTab(QWidget):
             self._list_lay.addWidget(row)
 
     def _delete(self, idx: int):
-        name = self._data[idx]["name"]
+        item = self._data[idx]
+        name = item["name"]
         reply = QMessageBox.question(
             self, "Delete",
             f"Remove {name} from stock?",
             QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
+            if self._store_id and item.get("dino_id"):
+                db.delete_dinosaur(item["dino_id"])
             self._data.pop(idx)
             self.refresh()
+            self.item_deleted.emit()   # notify home to refresh
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -353,6 +371,7 @@ class AddStockTab(QWidget):
     def __init__(self, stock_data: list, parent=None):
         super().__init__(parent)
         self._data = stock_data
+        self._store_id: str | None = None   # set by StorePage after login
         self.setStyleSheet("background: white;")
         self._build_ui()
 
@@ -415,6 +434,14 @@ class AddStockTab(QWidget):
         self.gender_combo.setStyleSheet(field_style)
         form_vlay.addLayout(make_row("Gender", self.gender_combo))
 
+        from PySide6.QtWidgets import QSpinBox
+        self.qty_spin = QSpinBox()
+        self.qty_spin.setMinimum(1)
+        self.qty_spin.setMaximum(9999)
+        self.qty_spin.setValue(1)
+        self.qty_spin.setStyleSheet(field_style)
+        form_vlay.addLayout(make_row("Quantity", self.qty_spin))
+
         self._swatch = ColorSwatch(QColor("#1a7a1a"))
         form_vlay.addLayout(make_row("Variant", self._swatch))
 
@@ -470,16 +497,32 @@ class AddStockTab(QWidget):
             QMessageBox.warning(self, "Invalid price", "Price must be a number.")
             return
 
-        self._data.append({
+        new_item = {
             "name":   name,
             "gene":   self.gene_combo.currentText(),
-            "price":  price,
+            "price":  cleaned,
             "gender": self.gender_combo.currentText(),
             "color":  self._swatch.color().name(),
-            "image":  self._img_picker.path(),
-        })
-        QMessageBox.information(self, "Saved",
-                                f"{name} has been added to your stock!")
+            "image":  self._img_picker.path() or "",
+        }
+
+        # save to DB if store_id is set
+        if self._store_id:
+            db.add_dinosaur(
+                store_id=self._store_id,
+                name=name,
+                gene=new_item["gene"],
+                gender=new_item["gender"],
+                age=0,
+                color=new_item["color"],
+                price=int(cleaned),
+                stock=self.qty_spin.value(),
+                image=new_item["image"],
+            )
+        else:
+            self._data.append(new_item)
+
+        QMessageBox.information(self, "Saved", f"{name} has been added to your stock!")
         self.item_added.emit()
         self._clear_form()
 
@@ -488,6 +531,7 @@ class AddStockTab(QWidget):
         self.price_edit.clear()
         self.gene_combo.setCurrentIndex(0)
         self.gender_combo.setCurrentIndex(0)
+        self.qty_spin.setValue(1)
         self._swatch.reset()
         self._img_picker.clear()
 
@@ -496,10 +540,16 @@ class AddStockTab(QWidget):
 #  Custom tab container matching the screenshot header style exactly
 # ══════════════════════════════════════════════════════════════════════════════
 class StoreTabWidget(QWidget):
+    item_added = Signal()   # bubbles up to MainWindow → home.refresh
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._stock_data = []
+        self._user = None
         self._build_ui()
+
+    def _on_item_added(self):
+        self.item_added.emit()
 
     def _build_ui(self):
         outer = QVBoxLayout(self)
@@ -558,6 +608,8 @@ class StoreTabWidget(QWidget):
         self._stock_tab    = StockTab(self._stock_data)
         self._addstock_tab = AddStockTab(self._stock_data)
         self._addstock_tab.item_added.connect(self._stock_tab.refresh)
+        self._addstock_tab.item_added.connect(self._on_item_added)
+        self._stock_tab.item_deleted.connect(self.item_added.emit)  # reuse same signal → home.refresh
 
         self._stack.addWidget(self._profile_tab)
         self._stack.addWidget(self._stock_tab)
@@ -599,15 +651,37 @@ class StoreTabWidget(QWidget):
             btn.setChecked(i == idx)
             btn.setStyleSheet(self._tab_style(i == idx))
 
+    def load_user(self, user: dict):
+        """Auto-create store if needed, then wire store_id to all tabs."""
+        self._user = user
+        store = db.get_store_by_user(user["user_id"])
+        if not store:
+            # auto-create store named after username
+            store = db.create_store(
+                user["user_id"],
+                store_name=f"{user['username']}'s Store",
+            )
+        store_id = store["store_id"]
+        self._addstock_tab._store_id = store_id
+        self._profile_tab.load_store(store)
+        self._stock_tab.load_store(store_id)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Central widget
 # ══════════════════════════════════════════════════════════════════════════════
 class StorePage(QWidget):
+    item_added = Signal()   # forward to MainWindow
+
     def __init__(self):
         super().__init__()
         self.setStyleSheet("background: #ebebeb;")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(StoreTabWidget())
+        self._tab_widget = StoreTabWidget()
+        self._tab_widget.item_added.connect(self.item_added.emit)
+        lay.addWidget(self._tab_widget)
+
+    def load_user(self, user: dict):
+        self._tab_widget.load_user(user)
 

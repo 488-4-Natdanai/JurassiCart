@@ -8,104 +8,87 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
 
-dir = os.path.dirname(os.path.abspath(__file__))
-dino_logo  = os.path.join(dir, "resorces", "dino2.png")
-juras_logo = os.path.join(dir, "resorces", "JurassiLogo.png")
+import database as db
+
+_dir       = os.path.dirname(os.path.abspath(__file__))
+dino_logo  = os.path.join(_dir, "resorces", "dino2.png")
+juras_logo = os.path.join(_dir, "resorces", "JurassiLogo.png")
+
 
 # ─────────────────────────────────────────────
-#  Sample cart data
-# ─────────────────────────────────────────────
-CART_ITEMS = [
-    {"name": "Tyrannosaurus Rex",  "type": "Carnivore", "variant": "#2d7a2d", "price": 25_000_000, "qty": 1, "checked": True},
-    {"name": "Phuwiangosaurus",    "type": "Herbivore", "variant": "#e8e800", "price": 50_000_000, "qty": 1, "checked": False},
-]
-
-# ─────────────────────────────────────────────
-#  CartItemRow – one row in the cart
+#  CartItemRow
 # ─────────────────────────────────────────────
 class CartItemRow(QFrame):
     changed = Signal()
+    deleted = Signal(str)   # emits cart_id
 
     def __init__(self, item: dict, parent=None):
         super().__init__(parent)
-        self.item = item
+        self.item = item   # dict with cart_id, dino_name, gene, color, price, qty, checked
         self._build_ui()
 
     def _build_ui(self):
-        self.setStyleSheet("""
-            CartItemRow {
-                background: #e8e8e8;
-                border-radius: 10px;
-            }
-        """)
+        self.setStyleSheet("CartItemRow{background:#e8e8e8;border-radius:10px;}")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         row = QHBoxLayout(self)
         row.setContentsMargins(16, 12, 16, 12)
         row.setSpacing(16)
 
-        # Checkbox
         self.chk = QCheckBox()
-        self.chk.setChecked(self.item["checked"])
+        self.chk.setChecked(self.item.get("checked", True))
         self.chk.setFixedSize(24, 24)
-        self.chk.setStyleSheet("QCheckBox::indicator { width:20px; height:20px; }")
+        self.chk.setStyleSheet("QCheckBox::indicator{width:20px;height:20px;}")
         self.chk.stateChanged.connect(self._on_check)
         row.addWidget(self.chk, alignment=Qt.AlignVCenter)
 
-        # Dino icon placeholder
         icon_lbl = QLabel()
         icon_lbl.setFixedSize(60, 60)
-        icon_lbl.setStyleSheet("background:#bbb; border-radius:8px;")
+        icon_lbl.setStyleSheet("background:#bbb;border-radius:8px;")
         icon_lbl.setAlignment(Qt.AlignCenter)
-        dino_px = QPixmap(os.path.join(dir, "resorces", "dino2.png"))
-        if not dino_px.isNull():
-            icon_lbl.setPixmap(dino_px.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        px = QPixmap(dino_logo)
+        if not px.isNull():
+            icon_lbl.setPixmap(px.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
             icon_lbl.setText("🦕")
             icon_lbl.setFont(QFont("Segoe UI", 22))
         row.addWidget(icon_lbl, alignment=Qt.AlignVCenter)
 
-        # Name + type + variant
         info = QVBoxLayout()
         info.setSpacing(2)
-
-        lbl_name = QLabel(self.item["name"])
+        lbl_name = QLabel(self.item["dino_name"])
         lbl_name.setFont(QFont("Segoe UI", 13, QFont.Bold))
-        lbl_name.setStyleSheet("color:#111; background:transparent;")
+        lbl_name.setStyleSheet("color:#111;background:transparent;")
         info.addWidget(lbl_name)
 
-        lbl_type = QLabel(self.item["type"])
+        lbl_type = QLabel(self.item.get("gene", ""))
         lbl_type.setFont(QFont("Segoe UI", 9))
-        lbl_type.setStyleSheet("color:#555; background:transparent;")
+        lbl_type.setStyleSheet("color:#555;background:transparent;")
         info.addWidget(lbl_type)
 
-        variant_row = QHBoxLayout()
-        variant_row.setSpacing(6)
-        variant_lbl = QLabel("Variant")
-        variant_lbl.setFont(QFont("Segoe UI", 9))
-        variant_lbl.setStyleSheet("color:#555; background:transparent;")
-        variant_row.addWidget(variant_lbl)
-
+        var_row = QHBoxLayout()
+        var_row.setSpacing(6)
+        var_lbl = QLabel("Variant")
+        var_lbl.setFont(QFont("Segoe UI", 9))
+        var_lbl.setStyleSheet("color:#555;background:transparent;")
+        var_row.addWidget(var_lbl)
         color_box = QLabel()
         color_box.setFixedSize(18, 18)
-        color_box.setStyleSheet(f"background:{self.item['variant']}; border-radius:3px;")
-        variant_row.addWidget(color_box)
-        variant_row.addStretch()
-        info.addLayout(variant_row)
-
+        color_box.setStyleSheet(f"background:{self.item.get('color','#888')};border-radius:3px;")
+        var_row.addWidget(color_box)
+        var_row.addStretch()
+        info.addLayout(var_row)
         row.addLayout(info, stretch=1)
 
-        # Price
-        price_lbl = QLabel(f"${self.item['price']:,}")
+        price_lbl = QLabel(f"${int(self.item['price']):,}")
         price_lbl.setFont(QFont("Segoe UI", 11))
         price_lbl.setStyleSheet("color:#111;")
         price_lbl.setFixedWidth(130)
         price_lbl.setAlignment(Qt.AlignCenter)
         row.addWidget(price_lbl)
 
-        # Quantity spinner
         qty_frame = QFrame()
-        qty_frame.setStyleSheet("QFrame{background:#d0d0d0; border-radius:14px;}")
+        qty_frame.setStyleSheet("QFrame{background:#d0d0d0;border-radius:14px;}")
         qty_frame.setFixedSize(100, 32)
         qty_layout = QHBoxLayout(qty_frame)
         qty_layout.setContentsMargins(8, 0, 8, 0)
@@ -122,7 +105,6 @@ class CartItemRow(QFrame):
             b.setFixedSize(20, 20)
             b.setStyleSheet("QPushButton{background:transparent;border:none;font-size:10px;color:#333;}"
                             "QPushButton:hover{color:#000;}")
-
         btn_up.clicked.connect(self._qty_up)
         btn_dn.clicked.connect(self._qty_dn)
 
@@ -131,26 +113,35 @@ class CartItemRow(QFrame):
         qty_layout.addWidget(btn_dn)
         row.addWidget(qty_frame, alignment=Qt.AlignVCenter)
 
-        # Delete button
         btn_del = QPushButton("Delete")
         btn_del.setFixedSize(80, 32)
         btn_del.setStyleSheet("""
-            QPushButton{background:#d0d0d0;border:none;border-radius:14px;
-                        font-size:10pt;color:#111;}
+            QPushButton{background:#d0d0d0;border:none;border-radius:14px;font-size:10pt;color:#111;}
             QPushButton:hover{background:#bbb;}
         """)
         btn_del.clicked.connect(self._on_delete)
         row.addWidget(btn_del, alignment=Qt.AlignVCenter)
 
     def _qty_up(self):
-        self.item["qty"] += 1
+        # cap at available stock in DB
+        dino = db.get_dinosaur(self.item.get("dino_id", ""))
+        max_stock = int(dino["stock"]) if dino else 999
+        current_qty = int(self.item["qty"])
+        if current_qty >= max_stock:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Stock limit",
+                                f"Only {max_stock} unit(s) available in stock.")
+            return
+        self.item["qty"] = current_qty + 1
         self.qty_lbl.setText(str(self.item["qty"]))
+        db.update_cart_qty(self.item["cart_id"], self.item["qty"])
         self.changed.emit()
 
     def _qty_dn(self):
-        if self.item["qty"] > 1:
-            self.item["qty"] -= 1
+        if int(self.item["qty"]) > 1:
+            self.item["qty"] = int(self.item["qty"]) - 1
             self.qty_lbl.setText(str(self.item["qty"]))
+            db.update_cart_qty(self.item["cart_id"], self.item["qty"])
             self.changed.emit()
 
     def _on_check(self):
@@ -158,19 +149,65 @@ class CartItemRow(QFrame):
         self.changed.emit()
 
     def _on_delete(self):
+        db.remove_from_cart(self.item["cart_id"])
+        self.deleted.emit(self.item["cart_id"])
         self.setParent(None)
         self.deleteLater()
         self.changed.emit()
+
 
 # ─────────────────────────────────────────────
 #  CartPage
 # ─────────────────────────────────────────────
 class CartPage(QWidget):
+    go_checkout = Signal(list, int)   # (checked_items, wallet)
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.items = CART_ITEMS
+        self._user: dict | None = None
         self.rows: list[CartItemRow] = []
         self._build_ui()
+
+    def load_user(self, user: dict):
+        """Called by MainWindow after login."""
+        self._user = user
+        self._reload_from_db()
+
+    def add_item(self, dino: dict):
+        """Called from store page to add a dino to cart."""
+        if not self._user:
+            return
+        cart_row = db.add_to_cart(self._user["user_id"], dino)
+        # check if row widget already exists → update qty label
+        for row in self.rows:
+            if row.item["cart_id"] == cart_row["cart_id"]:
+                row.item["qty"] = int(cart_row["qty"])
+                row.qty_lbl.setText(str(row.item["qty"]))
+                self._refresh_total()
+                return
+        # new row
+        cart_row["qty"] = int(cart_row["qty"])
+        cart_row["checked"] = True
+        self._add_row(cart_row)
+        self._refresh_total()
+
+    def _reload_from_db(self):
+        # clear existing rows
+        for row in self.rows:
+            row.setParent(None)
+            row.deleteLater()
+        self.rows.clear()
+
+        if not self._user:
+            self._refresh_total()
+            return
+
+        items = db.get_cart(self._user["user_id"])
+        for item in items:
+            item["qty"] = int(item["qty"])
+            item["checked"] = True
+            self._add_row(item)
+        self._refresh_total()
 
     def _build_ui(self):
         self.setStyleSheet("background:#f0f0f0;")
@@ -178,20 +215,17 @@ class CartPage(QWidget):
         outer.setContentsMargins(30, 20, 30, 0)
         outer.setSpacing(0)
 
-        # White card
         card = QFrame()
-        card.setStyleSheet("QFrame{background:#fff; border-radius:14px;}")
+        card.setStyleSheet("QFrame{background:#fff;border-radius:14px;}")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(20, 16, 20, 16)
         card_layout.setSpacing(12)
 
-        # Title
         title = QLabel("Cart")
         title.setFont(QFont("Segoe UI", 16, QFont.Bold))
         title.setStyleSheet("color:#111;")
         card_layout.addWidget(title)
 
-        # Column headers
         header = QHBoxLayout()
         header.setContentsMargins(16, 0, 16, 0)
         for text, stretch, width in [
@@ -207,7 +241,6 @@ class CartPage(QWidget):
             header.addWidget(lbl, stretch=stretch)
         card_layout.addLayout(header)
 
-        # Scroll area for rows
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
@@ -219,15 +252,11 @@ class CartPage(QWidget):
         self.rows_layout.setSpacing(8)
         self.rows_layout.addStretch()
 
-        for item in self.items:
-            self._add_row(item)
-
         scroll.setWidget(self.rows_container)
         card_layout.addWidget(scroll, stretch=1)
-
         outer.addWidget(card, stretch=1)
 
-        # Bottom bar
+        # bottom bar
         bottom = QFrame()
         bottom.setFixedHeight(64)
         bottom.setStyleSheet("QFrame{background:#f0f0f0;}")
@@ -240,10 +269,9 @@ class CartPage(QWidget):
         self.chk_all.setStyleSheet("QCheckBox::indicator{width:20px;height:20px;}")
         self.chk_all.stateChanged.connect(self._select_all)
         bottom_layout.addWidget(self.chk_all)
-
         bottom_layout.addStretch()
 
-        self.lbl_total = QLabel()
+        self.lbl_total = QLabel("Total(0 items): $0")
         self.lbl_total.setFont(QFont("Segoe UI", 11))
         self.lbl_total.setStyleSheet("color:#111;")
         bottom_layout.addWidget(self.lbl_total)
@@ -255,59 +283,59 @@ class CartPage(QWidget):
             QPushButton{background:#0b7a12;border:none;border-radius:10px;color:white;}
             QPushButton:hover{background:#095e0e;}
         """)
-        btn_order.clicked.connect(lambda: QMessageBox.information(self, "Order", "Order placed!"))
+        btn_order.clicked.connect(self._on_order)
         bottom_layout.addWidget(btn_order)
-
         outer.addWidget(bottom)
 
-        self._refresh_total()
-
-    def _add_row(self, item):
+    def _add_row(self, item: dict):
         row = CartItemRow(item)
         row.changed.connect(self._refresh_total)
+        row.deleted.connect(self._on_row_deleted)
         idx = self.rows_layout.count() - 1
         self.rows_layout.insertWidget(idx, row)
         self.rows.append(row)
 
+    def _on_row_deleted(self, cart_id: str):
+        self.rows = [r for r in self.rows if r.item.get("cart_id") != cart_id]
+        self._refresh_total()
+
     def _refresh_total(self):
         checked = [r.item for r in self.rows if not r.isHidden() and r.item.get("checked")]
-        total = sum(i["price"] * i["qty"] for i in checked)
-        count = sum(i["qty"] for i in checked)
+        total = sum(int(i["price"]) * int(i["qty"]) for i in checked)
+        count = sum(int(i["qty"]) for i in checked)
         self.lbl_total.setText(f"Total({count} item{'s' if count != 1 else ''}): ${total:,}")
 
     def _select_all(self, state):
         for row in self.rows:
             row.chk.setChecked(bool(state))
 
-# ── shared cart data (same reference as cart.py would use) ──────────────────
-CART_ITEMS = [
-    {"name": "Tyrannosaurus Rex", "type": "Carnivore", "variant": "#2d7a2d", "price": 25_000_000, "qty": 1, "checked": True},
-    {"name": "Phuwiangosaurus",   "type": "Herbivore", "variant": "#e8e800", "price": 50_000_000, "qty": 1, "checked": False},
-]
+    def _on_order(self):
+        checked = [r.item for r in self.rows if r.item.get("checked")]
+        if not checked:
+            QMessageBox.warning(self, "No items", "Please select at least one item.")
+            return
+        wallet = db.get_wallet(self._user["user_id"]) if self._user else 0
+        self.go_checkout.emit(checked, wallet)
 
-# ── mock wallet balance ──────────────────────────────────────────────────────
-WALLET_BALANCE = 30_000_000   # change to test insufficient-fund path
 
-
-# ────────────────────────────────────────────────────────────────────────────
-#  OrderSummaryItem  – one card in the right panel
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+#  OrderSummaryItem (used by CheckoutPage)
+# ─────────────────────────────────────────────
 class OrderSummaryItem(QFrame):
     def __init__(self, item: dict, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("QFrame{background:#f7f7f7; border-radius:10px;}")
+        self.setStyleSheet("QFrame{background:#f7f7f7;border-radius:10px;}")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         row = QHBoxLayout(self)
         row.setContentsMargins(10, 10, 10, 10)
         row.setSpacing(12)
 
-        # dino thumbnail
         icon = QLabel()
         icon.setFixedSize(56, 56)
-        icon.setStyleSheet("background:#ddd; border-radius:8px;")
+        icon.setStyleSheet("background:#ddd;border-radius:8px;")
         icon.setAlignment(Qt.AlignCenter)
-        px = QPixmap(os.path.join(dir, "resorces", "dino2.png"))
+        px = QPixmap(dino_logo)
         if not px.isNull():
             icon.setPixmap(px.scaled(52, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
@@ -315,60 +343,72 @@ class OrderSummaryItem(QFrame):
             icon.setFont(QFont("Segoe UI", 20))
         row.addWidget(icon, alignment=Qt.AlignVCenter)
 
-        # info block
         info = QVBoxLayout()
         info.setSpacing(2)
-
-        name_lbl = QLabel(item["name"])
+        name_lbl = QLabel(item["dino_name"])
         name_lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        name_lbl.setStyleSheet("color:#111; background:transparent;")
+        name_lbl.setStyleSheet("color:#111;background:transparent;")
         info.addWidget(name_lbl)
 
-        type_lbl = QLabel(f"Type: {item['type']}")
+        type_lbl = QLabel(f"Type: {item.get('gene','')}")
         type_lbl.setFont(QFont("Segoe UI", 9))
-        type_lbl.setStyleSheet("color:#555; background:transparent;")
+        type_lbl.setStyleSheet("color:#555;background:transparent;")
         info.addWidget(type_lbl)
 
-        # variant colour swatch + label
         var_row = QHBoxLayout()
         var_row.setSpacing(5)
         var_lbl = QLabel("Variant:")
         var_lbl.setFont(QFont("Segoe UI", 9))
-        var_lbl.setStyleSheet("color:#555; background:transparent;")
+        var_lbl.setStyleSheet("color:#555;background:transparent;")
         var_row.addWidget(var_lbl)
         swatch = QLabel()
         swatch.setFixedSize(14, 14)
-        swatch.setStyleSheet(f"background:{item['variant']}; border-radius:3px;")
+        swatch.setStyleSheet(f"background:{item.get('color','#888')};border-radius:3px;")
         var_row.addWidget(swatch)
         var_row.addStretch()
         info.addLayout(var_row)
 
         qty_lbl = QLabel(f"Quantity: {item['qty']}")
         qty_lbl.setFont(QFont("Segoe UI", 9))
-        qty_lbl.setStyleSheet("color:#555; background:transparent;")
+        qty_lbl.setStyleSheet("color:#555;background:transparent;")
         info.addWidget(qty_lbl)
-
         row.addLayout(info, stretch=1)
 
-        # price
-        price_lbl = QLabel(f"${item['price'] * item['qty']:,}")
+        price_lbl = QLabel(f"${int(item['price']) * int(item['qty']):,}")
         price_lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        price_lbl.setStyleSheet("color:#111; background:transparent;")
+        price_lbl.setStyleSheet("color:#111;background:transparent;")
         price_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         row.addWidget(price_lbl, alignment=Qt.AlignVCenter)
 
 
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
 #  CheckoutPage
-# ────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
 class CheckoutPage(QWidget):
-    # signals for navigation (parent window connects these)
-    go_back_to_cart = None   # set by MainWindow after construction
-
-    def __init__(self, cart_items: list[dict], wallet: int, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.cart_items = [i for i in cart_items if i.get("checked")]
+        self.cart_items: list[dict] = []
+        self.wallet: int = 0
+        self._user: dict | None = None
+        self.total: int = 0
+
+    def load(self, cart_items: list[dict], wallet: int, user: dict | None = None):
+        """Called by MainWindow before showing this page."""
+        self.cart_items = cart_items
         self.wallet = wallet
+        self._user = user
+        self.total = sum(int(i["price"]) * int(i["qty"]) for i in cart_items)
+
+        # remove old inner widget and replace with fresh one
+        old_layout = self.layout()
+        if old_layout:
+            while old_layout.count():
+                child = old_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            # detach layout by reparenting to a temp widget
+            QWidget().setLayout(old_layout)
+
         self._build_ui()
 
     def _build_ui(self):
@@ -377,15 +417,13 @@ class CheckoutPage(QWidget):
         root.setContentsMargins(30, 24, 30, 24)
         root.setSpacing(24)
 
-        # ── LEFT: checkout steps (scrollable) ───────────────────────────
+        # LEFT scrollable
         left_outer = QFrame()
-        left_outer.setStyleSheet("QFrame{background:#fff; border-radius:14px;}")
-
+        left_outer.setStyleSheet("QFrame{background:#fff;border-radius:14px;}")
         left_scroll = QScrollArea()
         left_scroll.setWidgetResizable(True)
         left_scroll.setFrameShape(QFrame.NoFrame)
         left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        left_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         left_scroll.setStyleSheet("background:transparent;")
 
         left = QWidget()
@@ -398,362 +436,274 @@ class CheckoutPage(QWidget):
         title.setFont(QFont("Segoe UI", 18, QFont.Bold))
         title.setStyleSheet("color:#111;")
         left_layout.addWidget(title)
-
         self._add_divider(left_layout)
 
         # 1. Buyer info
         left_layout.addWidget(self._section_label("1. Buyer Information"))
         buyer_frame = QFrame()
-        buyer_frame.setStyleSheet("QFrame{background:#f7f7f7; border-radius:8px;}")
+        buyer_frame.setStyleSheet("QFrame{background:#f7f7f7;border-radius:8px;}")
         buyer_layout = QVBoxLayout(buyer_frame)
         buyer_layout.setContentsMargins(14, 12, 14, 12)
         buyer_layout.setSpacing(10)
 
-        buyer_field_style = """
-            QLineEdit {
-                border: 1px solid #ccc; border-radius: 6px;
-                padding: 7px 10px; font-size: 10pt; color: #111; background: #fff;
-            }
-            QLineEdit:focus { border: 1px solid #0b7a12; }
-        """
+        field_style = ("QLineEdit{border:1px solid #ccc;border-radius:6px;"
+                       "padding:7px 10px;font-size:10pt;color:#111;background:#fff;}"
+                       "QLineEdit:focus{border:1px solid #0b7a12;}")
 
-        # read-only name + wallet row
         info_row = QHBoxLayout()
-        for label, value in [("Name", "[username]"), ("Wallet", f"${self.wallet:,}")]:
-            col = QVBoxLayout()
-            col.setSpacing(2)
-            k = QLabel(label)
-            k.setFont(QFont("Segoe UI", 9))
-            k.setStyleSheet("color:#666; background:transparent;")
-            v = QLabel(value)
-            v.setFont(QFont("Segoe UI", 10, QFont.Bold))
-            v.setStyleSheet("color:#111; background:transparent;")
-            col.addWidget(k)
-            col.addWidget(v)
-            info_row.addLayout(col)
-            info_row.addStretch()
+        uname = self._user["username"] if self._user else "[username]"
+        for label, value in [("Name", uname), ("Wallet", f"${self.wallet:,}")]:
+            col = QVBoxLayout(); col.setSpacing(2)
+            k = QLabel(label); k.setFont(QFont("Segoe UI", 9))
+            k.setStyleSheet("color:#666;background:transparent;")
+            v = QLabel(value); v.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            v.setStyleSheet("color:#111;background:transparent;")
+            col.addWidget(k); col.addWidget(v)
+            info_row.addLayout(col); info_row.addStretch()
         buyer_layout.addLayout(info_row)
 
-        # email + phone input row
-        ep_row = QHBoxLayout()
-        ep_row.setSpacing(12)
-
+        ep_row = QHBoxLayout(); ep_row.setSpacing(12)
         self.field_email = QLineEdit()
         self.field_email.setPlaceholderText("Email *")
         self.field_email.setFixedHeight(40)
-        self.field_email.setStyleSheet(buyer_field_style)
+        self.field_email.setStyleSheet(field_style)
+        if self._user:
+            self.field_email.setText(self._user.get("email", ""))
 
         self.field_phone = QLineEdit()
         self.field_phone.setPlaceholderText("Phone Number *")
         self.field_phone.setFixedHeight(40)
-        self.field_phone.setStyleSheet(buyer_field_style)
-        from PySide6.QtGui import QRegularExpressionValidator
-        from PySide6.QtCore import QRegularExpression
-        self.field_phone.setValidator(
-            QRegularExpressionValidator(QRegularExpression(r"[\d\+\-\s]{0,20}"), self)
-        )
+        self.field_phone.setStyleSheet(field_style)
+        if self._user:
+            self.field_phone.setText(self._user.get("phone", ""))
 
-        ep_row.addWidget(self.field_email)
-        ep_row.addWidget(self.field_phone)
+        ep_row.addWidget(self.field_email); ep_row.addWidget(self.field_phone)
         buyer_layout.addLayout(ep_row)
-
         left_layout.addWidget(buyer_frame)
-
         self._add_divider(left_layout)
 
-        # 2. Shipping Address
+        # 2. Shipping
         left_layout.addWidget(self._section_label("2. Shipping Address"))
+        sh_style = ("QLineEdit{border:1px solid #ccc;border-radius:6px;"
+                    "padding:8px 10px;font-size:10pt;color:#111;background:#fff;}"
+                    "QLineEdit:focus{border:1px solid #0b7a12;}"
+                    "QLineEdit[invalid='true']{border:1px solid #cc0000;}")
 
-        field_style = """
-            QLineEdit {
-                border: 1px solid #ccc;
-                border-radius: 6px;
-                padding: 8px 10px;
-                font-size: 10pt;
-                color: #111;
-                background: #fff;
-            }
-            QLineEdit:focus { border: 1px solid #0b7a12; }
-            QLineEdit[invalid="true"] { border: 1px solid #cc0000; }
-        """
-
-        def make_field(placeholder: str, required: bool = True) -> QLineEdit:
+        def mf(ph, req=True):
             f = QLineEdit()
-            ph = placeholder + (" *" if required else "")
-            f.setPlaceholderText(ph)
-            f.setFixedHeight(40)
-            f.setStyleSheet(field_style)
+            f.setPlaceholderText(ph + (" *" if req else ""))
+            f.setFixedHeight(40); f.setStyleSheet(sh_style)
             return f
 
-        # Name / Postal Code row
-        name_row = QHBoxLayout()
-        name_row.setSpacing(12)
-        self.field_first = make_field("Name")
-        self.field_postal = make_field("Postal Code")
+        nr = QHBoxLayout(); nr.setSpacing(12)
+        self.field_first = mf("Name")
+        self.field_postal = mf("Postal Code")
         self.field_postal.setMaxLength(10)
         from PySide6.QtGui import QIntValidator
         self.field_postal.setValidator(QIntValidator(0, 9999999, self))
-        name_row.addWidget(self.field_first)
-        name_row.addWidget(self.field_postal)
-        left_layout.addLayout(name_row)
+        nr.addWidget(self.field_first); nr.addWidget(self.field_postal)
+        left_layout.addLayout(nr)
 
-        # Street address
-        self.field_street = make_field("Street Address")
+        self.field_street = mf("Street Address")
         left_layout.addWidget(self.field_street)
-
-        # Apt / Suite (optional)
-        self.field_apt = make_field("Apt / Suite / Unit", required=False)
+        self.field_apt = QLineEdit()
         self.field_apt.setPlaceholderText("Apt / Suite / Unit (Optional)")
+        self.field_apt.setFixedHeight(40); self.field_apt.setStyleSheet(sh_style)
         left_layout.addWidget(self.field_apt)
 
-        # City / Province row
-        city_prov_row = QHBoxLayout()
-        city_prov_row.setSpacing(12)
-        self.field_city     = make_field("City")
-        self.field_province = make_field("Province")
-        city_prov_row.addWidget(self.field_city)
-        city_prov_row.addWidget(self.field_province)
-        left_layout.addLayout(city_prov_row)
-
+        cr = QHBoxLayout(); cr.setSpacing(12)
+        self.field_city = mf("City")
+        self.field_province = mf("Province")
+        cr.addWidget(self.field_city); cr.addWidget(self.field_province)
+        left_layout.addLayout(cr)
         self._add_divider(left_layout)
 
-        # 3. Total + wallet check info
-        total = sum(i["price"] * i["qty"] for i in self.cart_items)
-        self.total = total
+        # 3. Total
+        tr = QHBoxLayout()
+        tl = QLabel("Total:"); tl.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        tl.setStyleSheet("color:#111;")
+        tv = QLabel(f"${self.total:,}"); tv.setFont(QFont("Segoe UI", 13, QFont.Bold))
+        tv.setStyleSheet("color:#0b7a12;"); tv.setAlignment(Qt.AlignRight)
+        tr.addWidget(tl); tr.addStretch(); tr.addWidget(tv)
+        left_layout.addLayout(tr)
 
-        total_row = QHBoxLayout()
-        total_lbl = QLabel("Total:")
-        total_lbl.setFont(QFont("Segoe UI", 13, QFont.Bold))
-        total_lbl.setStyleSheet("color:#111;")
-        total_val = QLabel(f"${total:,}")
-        total_val.setFont(QFont("Segoe UI", 13, QFont.Bold))
-        total_val.setStyleSheet("color:#0b7a12;")
-        total_val.setAlignment(Qt.AlignRight)
-        total_row.addWidget(total_lbl)
-        total_row.addStretch()
-        total_row.addWidget(total_val)
-        left_layout.addLayout(total_row)
-
-        wallet_row = QHBoxLayout()
-        wallet_lbl = QLabel("Wallet balance:")
-        wallet_lbl.setFont(QFont("Segoe UI", 10))
-        wallet_lbl.setStyleSheet("color:#666;")
-        wallet_val = QLabel(f"${self.wallet:,}")
-        wallet_val.setFont(QFont("Segoe UI", 10))
-        color = "#0b7a12" if self.wallet >= total else "#cc0000"
-        wallet_val.setStyleSheet(f"color:{color};")
-        wallet_val.setAlignment(Qt.AlignRight)
-        wallet_row.addWidget(wallet_lbl)
-        wallet_row.addStretch()
-        wallet_row.addWidget(wallet_val)
-        left_layout.addLayout(wallet_row)
-
+        wr = QHBoxLayout()
+        wl = QLabel("Wallet balance:"); wl.setFont(QFont("Segoe UI", 10))
+        wl.setStyleSheet("color:#666;")
+        wv = QLabel(f"${self.wallet:,}"); wv.setFont(QFont("Segoe UI", 10))
+        wv.setStyleSheet(f"color:{'#0b7a12' if self.wallet >= self.total else '#cc0000'};")
+        wv.setAlignment(Qt.AlignRight)
+        wr.addWidget(wl); wr.addStretch(); wr.addWidget(wv)
+        left_layout.addLayout(wr)
         left_layout.addStretch()
 
-        # Buttons row
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(12)
-
+        btn_row = QHBoxLayout(); btn_row.setSpacing(12)
         back_btn = QPushButton("← Back to Cart")
         back_btn.setFixedHeight(44)
         back_btn.setFont(QFont("Segoe UI", 11))
-        back_btn.setStyleSheet("""
-            QPushButton{background:#e0e0e0;border:none;border-radius:10px;color:#333;}
-            QPushButton:hover{background:#ccc;}
-        """)
+        back_btn.setStyleSheet("QPushButton{background:#e0e0e0;border:none;border-radius:10px;color:#333;}"
+                               "QPushButton:hover{background:#ccc;}")
         back_btn.clicked.connect(self._on_back)
         btn_row.addWidget(back_btn)
 
         confirm_btn = QPushButton("Confirm & Pay")
         confirm_btn.setFixedHeight(44)
         confirm_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        confirm_btn.setStyleSheet("""
-            QPushButton{background:#0b7a12;border:none;border-radius:10px;color:white;}
-            QPushButton:hover{background:#095e0e;}
-        """)
+        confirm_btn.setStyleSheet("QPushButton{background:#0b7a12;border:none;border-radius:10px;color:white;}"
+                                  "QPushButton:hover{background:#095e0e;}")
         confirm_btn.clicked.connect(self._on_confirm)
         btn_row.addWidget(confirm_btn, stretch=1)
-
         left_layout.addLayout(btn_row)
 
         left_scroll.setWidget(left)
-        left_outer_layout = QVBoxLayout(left_outer)
-        left_outer_layout.setContentsMargins(0, 0, 0, 0)
-        left_outer_layout.addWidget(left_scroll)
-
+        lo = QVBoxLayout(left_outer); lo.setContentsMargins(0, 0, 0, 0)
+        lo.addWidget(left_scroll)
         root.addWidget(left_outer, stretch=3)
 
-        # ── RIGHT: order summary panel ───────────────────────────────────
+        # RIGHT summary
         right = QFrame()
-        right.setStyleSheet("QFrame{background:#fff; border-radius:14px;}")
+        right.setStyleSheet("QFrame{background:#fff;border-radius:14px;}")
         right.setFixedWidth(340)
-        right_outer = QVBoxLayout(right)
-        right_outer.setContentsMargins(0, 0, 0, 0)
-        right_outer.setSpacing(0)
+        ro = QVBoxLayout(right); ro.setContentsMargins(0, 0, 0, 0); ro.setSpacing(0)
 
-        # title (fixed, outside scroll)
-        title_bar = QWidget()
-        title_bar.setStyleSheet("background:transparent;")
-        title_bar_layout = QVBoxLayout(title_bar)
-        title_bar_layout.setContentsMargins(20, 20, 20, 8)
-        summary_title = QLabel("Order Summary")
-        summary_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        summary_title.setStyleSheet("color:#111;")
-        title_bar_layout.addWidget(summary_title)
-        right_outer.addWidget(title_bar)
+        tb = QWidget(); tb.setStyleSheet("background:transparent;")
+        tbl = QVBoxLayout(tb); tbl.setContentsMargins(20, 20, 20, 8)
+        st = QLabel("Order Summary"); st.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        st.setStyleSheet("color:#111;"); tbl.addWidget(st)
+        ro.addWidget(tb)
 
-        # scrollable area for item cards
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setStyleSheet("background:transparent;")
-
-        items_widget = QWidget()
-        items_widget.setStyleSheet("background:transparent;")
-        items_layout = QVBoxLayout(items_widget)
-        items_layout.setContentsMargins(20, 4, 20, 4)
-        items_layout.setSpacing(8)
-
+        sc2 = QScrollArea(); sc2.setWidgetResizable(True)
+        sc2.setFrameShape(QFrame.NoFrame)
+        sc2.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        sc2.setStyleSheet("background:transparent;")
+        iw = QWidget(); iw.setStyleSheet("background:transparent;")
+        il = QVBoxLayout(iw)
+        il.setContentsMargins(20, 4, 20, 4)
+        il.setSpacing(8)
         for item in self.cart_items:
-            items_layout.addWidget(OrderSummaryItem(item))
-        items_layout.addStretch()
+            il.addWidget(OrderSummaryItem(item))
+        il.addStretch()
+        sc2.setWidget(iw); ro.addWidget(sc2, stretch=1)
 
-        scroll.setWidget(items_widget)
-        right_outer.addWidget(scroll, stretch=1)
-
-        # fixed footer: subtotal / total
-        footer = QWidget()
-        footer.setStyleSheet("background:transparent;")
-        footer_layout = QVBoxLayout(footer)
-        footer_layout.setContentsMargins(20, 8, 20, 20)
-        footer_layout.setSpacing(6)
-
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet("color:#e0e0e0;")
-        footer_layout.addWidget(line)
-
-        subtotal = total
-        for label, value in [("Subtotal", f"${subtotal:,}"), ("Shipping", "Free")]:
-            r = QHBoxLayout()
-            l = QLabel(label)
-            l.setFont(QFont("Segoe UI", 10))
-            l.setStyleSheet("color:#555; background:transparent;")
-            v = QLabel(value)
-            v.setFont(QFont("Segoe UI", 10))
-            v.setStyleSheet("color:#111; background:transparent;")
-            v.setAlignment(Qt.AlignRight)
-            r.addWidget(l); r.addStretch(); r.addWidget(v)
-            footer_layout.addLayout(r)
-
-        line2 = QFrame()
-        line2.setFrameShape(QFrame.HLine)
-        line2.setStyleSheet("color:#e0e0e0;")
-        footer_layout.addWidget(line2)
-
-        total_r = QHBoxLayout()
-        tl = QLabel("Total")
-        tl.setFont(QFont("Segoe UI", 12, QFont.Bold))
-        tl.setStyleSheet("color:#111; background:transparent;")
-        tv = QLabel(f"${total:,}")
-        tv.setFont(QFont("Segoe UI", 12, QFont.Bold))
-        tv.setStyleSheet("color:#0b7a12; background:transparent;")
-        tv.setAlignment(Qt.AlignRight)
-        total_r.addWidget(tl); total_r.addStretch(); total_r.addWidget(tv)
-        footer_layout.addLayout(total_r)
-
-        right_outer.addWidget(footer)
+        ft = QWidget(); ft.setStyleSheet("background:transparent;")
+        fl = QVBoxLayout(ft); fl.setContentsMargins(20, 8, 20, 20); fl.setSpacing(6)
+        ln = QFrame(); ln.setFrameShape(QFrame.HLine); ln.setStyleSheet("color:#e0e0e0;")
+        fl.addWidget(ln)
+        for lbl, val in [("Subtotal", f"${self.total:,}"), ("Shipping", "Free")]:
+            rr = QHBoxLayout()
+            ll = QLabel(lbl); ll.setFont(QFont("Segoe UI", 10))
+            ll.setStyleSheet("color:#555;background:transparent;")
+            vv = QLabel(val); vv.setFont(QFont("Segoe UI", 10))
+            vv.setStyleSheet("color:#111;background:transparent;"); vv.setAlignment(Qt.AlignRight)
+            rr.addWidget(ll); rr.addStretch(); rr.addWidget(vv); fl.addLayout(rr)
+        ln2 = QFrame(); ln2.setFrameShape(QFrame.HLine); ln2.setStyleSheet("color:#e0e0e0;")
+        fl.addWidget(ln2)
+        tot_r = QHBoxLayout()
+        tll = QLabel("Total"); tll.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        tll.setStyleSheet("color:#111;background:transparent;")
+        tvv = QLabel(f"${self.total:,}"); tvv.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        tvv.setStyleSheet("color:#0b7a12;background:transparent;"); tvv.setAlignment(Qt.AlignRight)
+        tot_r.addWidget(tll); tot_r.addStretch(); tot_r.addWidget(tvv); fl.addLayout(tot_r)
+        ro.addWidget(ft)
         root.addWidget(right, stretch=0)
 
-    # ── helpers ─────────────────────────────────────────────────────────────
-    def _section_label(self, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        lbl.setStyleSheet("color:#333;")
-        return lbl
+    def _section_label(self, text):
+        lbl = QLabel(text); lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        lbl.setStyleSheet("color:#333;"); return lbl
 
-    def _add_divider(self, layout: QVBoxLayout):
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet("color:#e0e0e0;")
-        line.setFixedHeight(1)
+    def _add_divider(self, layout):
+        line = QFrame(); line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("color:#e0e0e0;"); line.setFixedHeight(1)
         layout.addWidget(line)
 
-    # ── flowchart logic ──────────────────────────────────────────────────────
     def _on_back(self):
-        # "Go back to cart" branch
-        QMessageBox.information(self, "Navigation", "Going back to Cart...")
+        # MainWindow will handle navigation
+        parent = self.parent()
+        while parent and not hasattr(parent, 'go'):
+            parent = parent.parent()
+        if parent:
+            parent.go(parent.cart)
 
-    def _validate_shipping(self) -> bool:
-        """Highlight empty required fields and return True if all valid."""
+    def _validate(self) -> bool:
         required = [
-            (self.field_email,   "Email"),
-            (self.field_phone,   "Phone Number"),
-            (self.field_first,   "Name"),
-            (self.field_street,  "Street Address"),
-            (self.field_city,    "City"),
-            (self.field_province,"Province"),
-            (self.field_postal,  "Postal Code"),
+            (self.field_email,    "Email"),
+            (self.field_phone,    "Phone Number"),
+            (self.field_first,    "Name"),
+            (self.field_street,   "Street Address"),
+            (self.field_city,     "City"),
+            (self.field_province, "Province"),
+            (self.field_postal,   "Postal Code"),
         ]
         errors = []
         for field, label in required:
             empty = field.text().strip() == ""
             field.setProperty("invalid", "true" if empty else "false")
-            field.style().unpolish(field)
-            field.style().polish(field)
+            field.style().unpolish(field); field.style().polish(field)
             if empty:
                 errors.append(label)
-
-        # basic email format check
-        if not errors or "Email" not in errors:
-            import re
-            if self.field_email.text().strip() and not re.match(r"[^@]+@[^@]+\.[^@]+", self.field_email.text().strip()):
-                self.field_email.setProperty("invalid", "true")
-                self.field_email.style().unpolish(self.field_email)
-                self.field_email.style().polish(self.field_email)
-                errors.append("Email (invalid format)")
-
+        import re
+        if self.field_email.text().strip() and \
+                not re.match(r"[^@]+@[^@]+\.[^@]+", self.field_email.text().strip()):
+            self.field_email.setProperty("invalid", "true")
+            self.field_email.style().unpolish(self.field_email)
+            self.field_email.style().polish(self.field_email)
+            errors.append("Email (invalid format)")
         if errors:
-            QMessageBox.warning(
-                self, "Missing Information",
-                "Please fix the following fields:\n• " + "\n• ".join(errors)
-            )
+            QMessageBox.warning(self, "Missing Information",
+                                "Please fix:\n• " + "\n• ".join(errors))
             return False
         return True
 
     def _on_confirm(self):
         if not self.cart_items:
-            QMessageBox.warning(self, "Empty Order", "No items selected.")
+            QMessageBox.warning(self, "Empty Order", "No items selected."); return
+        if not self._validate():
             return
-
-        # Validate shipping address first
-        if not self._validate_shipping():
-            return
-
-        # Check wallet
         if self.wallet < self.total:
             reply = QMessageBox.question(
                 self, "Insufficient Funds",
-                f"Your wallet (${self.wallet:,}) is not enough for this order (${self.total:,}).\n\n"
-                "Do you want to add funds to your wallet?",
-                QMessageBox.Yes | QMessageBox.No
-            )
+                f"Wallet (${self.wallet:,}) < Order (${self.total:,}).\n"
+                "Add funds to wallet?",
+                QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
-                QMessageBox.information(self, "Navigation", "Going to Wallet top-up page...")
+                # navigate to account page → wallet tab
+                parent = self.parent()
+                while parent and not hasattr(parent, 'account'):
+                    parent = parent.parent()
+                if parent:
+                    parent.account.tab_bar._on_click(1)   # switch to Wallet tab
+                    parent.go(parent.account)
             else:
-                QMessageBox.information(self, "Navigation", "Going back to Store...")
+                # go back to store
+                parent = self.parent()
+                while parent and not hasattr(parent, 'store'):
+                    parent = parent.parent()
+                if parent:
+                    parent.go(parent.store)
             return
 
-        # Wallet sufficient → update stock + success
-        self._update_stock()
-        QMessageBox.information(
-            self, "Order Successful",
-            f"Your order has been placed!\nTotal charged: ${self.total:,}"
-        )
-
-    def _update_stock(self):
-        # Placeholder: in real app, call DB / backend here
-        for item in self.cart_items:
-            print(f"[DB] Reduce stock: {item['name']} by {item['qty']}")
+        if self._user:
+            shipping = {
+                "name":    self.field_first.text().strip(),
+                "address": f"{self.field_street.text()}, {self.field_city.text()}, "
+                           f"{self.field_province.text()} {self.field_postal.text()}",
+                "email":   self.field_email.text().strip(),
+                "phone":   self.field_phone.text().strip(),
+            }
+            order = db.create_order(self._user["user_id"], self.cart_items, shipping)
+            if order:
+                db.clear_cart(self._user["user_id"])
+                QMessageBox.information(
+                    self, "Order Successful",
+                    f"Order placed!\nEstimated delivery: {order['delivery_days']} days\n"
+                    f"Total charged: ${self.total:,}")
+                # reload cart and refresh home stock display
+                parent = self.parent()
+                while parent and not hasattr(parent, 'cart'):
+                    parent = parent.parent()
+                if parent:
+                    parent.cart._reload_from_db()
+                    parent.home.refresh()   # update stock counts on home
+                    parent.go(parent.home)
+            else:
+                QMessageBox.warning(self, "Error", "Order failed. Please try again.")

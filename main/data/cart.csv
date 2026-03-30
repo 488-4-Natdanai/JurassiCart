@@ -1,0 +1,9 @@
+cart_id,user_id,dino_id,dino_name,gene,color,price,qty
+1987387f,6173a375,3320c74c,Pteranodon,Carnivore,#708090,15000000,2
+13bce844,6173a375,ccd9d7ed,Spinosaurus,Omnivore,#1e6b8a,35000000,1
+f50e1506,6173a375,881f1d7d,456,Carnivore,#1a7a1a,456456,1
+26dae88d,6173a375,4f8a2194,Ankylosaurus,Herbivore,#6b8e23,22000000,1
+b68f3fbe,6173a375,8924e88e,Phuwiangosaurus,Herbivore,#e8e800,50000000,2
+24af9400,6173a375,df8c064f,Brachiosaurus,Herbivore,#4a7c59,40000000,1
+b59f78f6,6173a375,dd641681,Velociraptor,Carnivore,#c8a000,12000000,1
+8fd8588b,6173a375,a20fa722,Tyrannosaurus Rex,Carnivore,#2d7a2d,25000000,1
