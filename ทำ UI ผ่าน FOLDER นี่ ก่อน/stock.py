@@ -604,7 +604,7 @@ class StoreTabWidget(QWidget):
 # ══════════════════════════════════════════════════════════════════════════════
 #  Central widget
 # ══════════════════════════════════════════════════════════════════════════════
-class stock(QWidget):
+class StorePage(QWidget):
     def __init__(self):
         super().__init__()
         self.setStyleSheet("background: #ebebeb;")

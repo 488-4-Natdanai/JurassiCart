@@ -11,11 +11,10 @@ from PySide6.QtGui import QFont, QAction, QFontDatabase, QIcon
 
 from home import home
 from reglog import login, register
-from account import account
+from account import AccountPage
 from store import StorePage
-from search import search
 from view import view
-from cart import cart, checkout
+from cart import CartPage, CheckoutPage
 
 
 dir = os.path.dirname(os.path.abspath(__file__))
@@ -45,16 +44,15 @@ class MainWindow(QMainWindow):
         self.home = home()
         self.login = login()
         self.register = register()
-        self.search = search()
-        self.account = account()
+        self.account = AccountPage()
         self.store = StorePage()
         self.view = view()
-        self.cart = cart()
-        self.checkout = checkout()
+        self.cart = CartPage()
+        self.checkout = CheckoutPage()
 
         pages = [
             self.home, self.login, self.register, self.account,
-            self.store, self.search, self.view, self.cart, self.checkout
+            self.store, self.view, self.cart, self.checkout
         ]
 
         for p in pages:

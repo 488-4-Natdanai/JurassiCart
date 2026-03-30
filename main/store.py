@@ -1,539 +1,294 @@
 import os
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QComboBox, QFrame, QFileDialog, QSizePolicy,
-    QScrollArea, QGridLayout, QStackedWidget, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView, QColorDialog
+    QApplication, QMainWindow, QWidget, QStackedWidget,
+    QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
+    QLabel, QLineEdit, QDateEdit, QSpinBox, QPushButton,
+    QDialog, QMessageBox, QScrollArea, QFrame, QSizePolicy,
+    QToolBar, QComboBox, QFileDialog, QColorDialog
 )
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QPainterPath
+from PySide6.QtCore import Qt, Signal, QDate, QSize
+from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon, QColor
 
-dir_path = os.path.dirname(os.path.abspath(__file__))
-
-# ─────────────────────── constants ──────────────────────────────
-GREEN       = "#0b7a12"
-GREEN_HOVER = "#0a6610"
-
-BTN_STYLE = """
-    QPushButton {{
-        background-color: {bg};
-        color: white;
-        border: none;
-        border-radius: 18px;
-        font-size: 14px;
-        font-weight: bold;
-        padding: 8px 28px;
-    }}
-    QPushButton:hover {{ background-color: {hover}; }}
-    QPushButton:pressed {{ background-color: #085c0e; }}
-"""
-
-INPUT_STYLE = """
-    QLineEdit, QComboBox {
-        border: 1px solid #cccccc;
-        border-radius: 14px;
-        padding: 5px 14px;
-        font-size: 13px;
-        background: white;
-        min-width: 200px;
-        min-height: 28px;
-    }
-    QLineEdit:focus, QComboBox:focus { border: 1.5px solid #0b7a12; }
-    QComboBox::drop-down { border: none; width: 24px; }
-    QComboBox::down-arrow { width: 12px; height: 12px; }
-"""
-LABEL_STYLE = "font-size: 13px; color: #333333;"
+dir_path   = os.path.dirname(os.path.abspath(__file__))
+dino_logo  = os.path.join(dir_path, "resorces", "dino2.png")
+juras_logo = os.path.join(dir_path, "resorces", "JurassiLogo.png")
 
 
-# ─────────────────────── helpers ────────────────────────────────
-def make_tab_btn(text):
-    btn = QPushButton(text)
-    btn.setCheckable(True)
-    btn.setMinimumWidth(130)
-    btn.setMinimumHeight(42)
-    btn.setFont(QFont("Segoe UI", 11))
-    return btn
+# ── colour swatch button ──────────────────────────────────────────────────────
+class ColorSwatch(QPushButton):
+    def __init__(self, color: QColor = QColor("#1a7a1a"), parent=None):
+        super().__init__(parent)
+        self.setFixedSize(22, 22)
+        self._color = color
+        self._refresh()
+        self.clicked.connect(self._pick)
+
+    def _refresh(self):
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background: {self._color.name()};
+                border: 1px solid #555;
+                border-radius: 3px;
+            }}
+        """)
+
+    def _pick(self):
+        c = QColorDialog.getColor(self._color, self, "Pick variant colour")
+        if c.isValid():
+            self._color = c
+            self._refresh()
+
+    def color(self) -> QColor:
+        return self._color
+
+    def reset(self):
+        self._color = QColor("#1a7a1a")
+        self._refresh()
 
 
-def apply_tab_styles(buttons, active_index):
-    for i, btn in enumerate(buttons):
-        if i == active_index:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: white;
-                    border: 1px solid #cccccc;
-                    border-bottom: none;
-                    border-radius: 0px;
-                    font-weight: bold;
-                    font-size: 13px;
-                    padding: 8px 20px;
-                }
-            """)
-            btn.setChecked(True)
-        else:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: #e8e8e8;
-                    border: 1px solid #cccccc;
-                    border-radius: 0px;
-                    font-size: 13px;
-                    color: #555555;
-                    padding: 8px 20px;
-                }
-                QPushButton:hover { background: #d8d8d8; }
-            """)
-            btn.setChecked(False)
+# ── image picker widget ───────────────────────────────────────────────────────
+class ImagePicker(QWidget):
+    def __init__(self, placeholder_size=(160, 120), circular=False, parent=None):
+        super().__init__(parent)
+        self._path = None
+        self._w, self._h = placeholder_size
+        self._circular   = circular
+
+        self._img_label = QLabel()
+        self._img_label.setFixedSize(self._w, self._h)
+        self._img_label.setAlignment(Qt.AlignCenter)
+        radius = self._w // 2 if circular else 8
+        self._img_label.setStyleSheet(
+            f"background: #c0c0c0; border-radius: {radius}px;")
+
+        self._btn = QPushButton("Select Image")
+        self._btn.setStyleSheet("""
+            QPushButton {
+                background: #e0e0e0;
+                border: 1px solid #bbb;
+                border-radius: 12px;
+                font-size: 12px;
+                padding: 4px 14px;
+                color: #333;
+            }
+            QPushButton:hover { background: #d0d0d0; }
+        """)
+        self._btn.clicked.connect(self._select)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+        lay.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        lay.addWidget(self._img_label, alignment=Qt.AlignHCenter)
+        lay.addWidget(self._btn,       alignment=Qt.AlignHCenter)
+
+    def _select(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Image", "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
+        if path:
+            self._path = path
+            pix = QPixmap(path).scaled(
+                self._w, self._h,
+                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._img_label.setPixmap(pix)
+
+    def clear(self):
+        self._path = None
+        self._img_label.setPixmap(QPixmap())
+
+    def path(self):
+        return self._path
 
 
-def color_swatch(color: QColor, size=20) -> QLabel:
-    """Return a small square label filled with color."""
-    lbl = QLabel()
-    lbl.setFixedSize(size, size)
-    pix = QPixmap(size, size)
-    pix.fill(color)
-    lbl.setPixmap(pix)
-    lbl.setStyleSheet("border: 1px solid #888;")
-    return lbl
-
-
-# ══════════════════════ Store Profile ═══════════════════════════
-class StoreProfilePage(QWidget):
-    def __init__(self):
-        super().__init__()
+# ══════════════════════════════════════════════════════════════════════════════
+#  TAB 1 – Store Profile
+# ══════════════════════════════════════════════════════════════════════════════
+class StoreProfileTab(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("background: white;")
         self._build_ui()
 
     def _build_ui(self):
         root = QHBoxLayout(self)
-        root.setContentsMargins(40, 30, 40, 30)
-        root.setSpacing(60)
+        root.setContentsMargins(60, 50, 60, 50)
+        root.setSpacing(0)
 
-        # ── left: form ──
-        form_widget = QWidget()
-        form = QGridLayout(form_widget)
-        form.setVerticalSpacing(16)
-        form.setHorizontalSpacing(16)
-        form.setColumnStretch(1, 1)
+        # ── left: form ──────────────────────────────────────────────────────
+        left = QWidget()
+        left_lay = QVBoxLayout(left)
+        left_lay.setContentsMargins(0, 0, 0, 0)
+        left_lay.setSpacing(22)
+        left_lay.setAlignment(Qt.AlignTop)
 
-        lbl = QLabel("Store name")
-        lbl.setStyleSheet(LABEL_STYLE)
-        lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        name_row = QHBoxLayout()
+        name_row.setSpacing(12)
 
-        self.store_name_inp = QLineEdit("Jane Doe")
-        self.store_name_inp.setStyleSheet(INPUT_STYLE)
+        name_lbl = QLabel("Store name")
+        name_lbl.setFixedWidth(90)
+        name_lbl.setFont(QFont("", 11))
+        name_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
+        self.store_name = QLineEdit()
+        self.store_name.setPlaceholderText("e.g. Jane Doe")
+        self.store_name.setFixedWidth(210)
+        self.store_name.setFixedHeight(28)
+        self.store_name.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #bbb;
+                border-radius: 12px;
+                padding: 2px 12px;
+                font-size: 12px;
+                background: white;
+            }
+        """)
+
+        name_row.addWidget(name_lbl)
+        name_row.addWidget(self.store_name)
+        name_row.addStretch()
+        left_lay.addLayout(name_row)
+
+        # Save button aligned under the input
+        save_row = QHBoxLayout()
+        pad = QWidget(); pad.setFixedWidth(102)
         save_btn = QPushButton("Save")
-        save_btn.setStyleSheet(BTN_STYLE.format(bg=GREEN, hover=GREEN_HOVER))
-        save_btn.setFixedWidth(120)
-        save_btn.clicked.connect(lambda: print(f"Store name saved: {self.store_name_inp.text()}"))
-
-        form.addWidget(lbl, 0, 0)
-        form.addWidget(self.store_name_inp, 0, 1)
-        form.addWidget(save_btn, 1, 1, alignment=Qt.AlignLeft)
-
-        root.addWidget(form_widget, stretch=2)
-
-        # ── right: avatar ──
-        av_widget = QWidget()
-        av_layout = QVBoxLayout(av_widget)
-        av_layout.setAlignment(Qt.AlignCenter)
-        av_layout.setSpacing(12)
-
-        self.avatar_lbl = QLabel()
-        self.avatar_lbl.setFixedSize(110, 110)
-        self.avatar_lbl.setAlignment(Qt.AlignCenter)
-        self.avatar_lbl.setFont(QFont("Segoe UI Emoji", 40))
-        self.avatar_lbl.setText("👤")
-        self.avatar_lbl.setStyleSheet("""
-            QLabel {
-                background-color: #b0b0b0;
-                border-radius: 55px;
-            }
-        """)
-
-        sel_btn = QPushButton("Select Image")
-        sel_btn.setStyleSheet("""
+        save_btn.setFixedSize(90, 32)
+        save_btn.setStyleSheet("""
             QPushButton {
-                background: white; border: 1px solid #aaaaaa;
-                border-radius: 12px; font-size: 12px;
-                padding: 5px 16px; color: #333;
+                background: #0b7a12; color: white;
+                border-radius: 14px; font-size: 13px; font-weight: bold;
             }
-            QPushButton:hover { background: #f0f0f0; }
+            QPushButton:hover   { background: #0d9918; }
+            QPushButton:pressed { background: #085c0d; }
         """)
-        sel_btn.clicked.connect(self._pick_image)
+        save_btn.clicked.connect(self._save)
+        save_row.addWidget(pad)
+        save_row.addWidget(save_btn)
+        save_row.addStretch()
+        left_lay.addLayout(save_row)
+        left_lay.addStretch()
 
-        av_layout.addStretch()
-        av_layout.addWidget(self.avatar_lbl, alignment=Qt.AlignCenter)
-        av_layout.addWidget(sel_btn, alignment=Qt.AlignCenter)
-        av_layout.addStretch()
+        root.addWidget(left, stretch=1)
 
-        root.addWidget(av_widget, stretch=1)
+        # ── vertical divider ────────────────────────────────────────────────
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        line.setStyleSheet("color: #ddd;")
+        root.addWidget(line)
 
-    def _pick_image(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp)"
-        )
-        if path:
-            pix = QPixmap(path).scaled(110, 110, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-            self.avatar_lbl.setText("")
-            self.avatar_lbl.setPixmap(pix)
+        # ── right: profile image picker ─────────────────────────────────────
+        right = QWidget()
+        right_lay = QVBoxLayout(right)
+        right_lay.setContentsMargins(40, 10, 0, 0)
+        right_lay.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
+        self._avatar = ImagePicker(placeholder_size=(90, 90), circular=True)
+        right_lay.addWidget(self._avatar)
+        right_lay.addStretch()
+        root.addWidget(right, stretch=1)
+
+    def _save(self):
+        if not self.store_name.text().strip():
+            QMessageBox.warning(self, "Invalid", "Please enter a store name.")
+            return
+        QMessageBox.information(self, "Saved", "Store profile saved successfully!")
 
 
-# ══════════════════════════ Stock ═══════════════════════════════
-class StockPage(QWidget):
-    def __init__(self, stock_data: list):
-        """stock_data: list of dicts {name, gene, price, gender, variant_color, image_path}"""
-        super().__init__()
-        self.stock_data = stock_data
-        self._build_ui()
+# ══════════════════════════════════════════════════════════════════════════════
+#  TAB 2 – Stock  (individual row widget)
+# ══════════════════════════════════════════════════════════════════════════════
+class StockRow(QWidget):
+    delete_requested = Signal(int)
 
-    def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 16, 20, 16)
-        root.setSpacing(8)
+    def __init__(self, index: int, item: dict, parent=None):
+        super().__init__(parent)
+        self._index = index
+        self.setFixedHeight(68)
+        self.setStyleSheet("background: #d8d8d8; border-radius: 6px;")
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
-
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-        self.list_layout = QVBoxLayout(container)
-        self.list_layout.setSpacing(0)
-        self.list_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._rebuild_rows()
-
-        self.list_layout.addStretch()
-        scroll.setWidget(container)
-        root.addWidget(scroll)
-
-    def _rebuild_rows(self):
-        # clear
-        while self.list_layout.count():
-            item = self.list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # header row
-        header = self._make_row_widget(
-            ["", "", "Name", "Price", ""], is_header=True
-        )
-        self.list_layout.addWidget(header)
-
-        for i, item in enumerate(self.stock_data):
-            row = self._make_stock_row(i + 1, item)
-            self.list_layout.addWidget(row)
-
-    def _make_row_widget(self, cols, is_header=False):
-        w = QWidget()
-        w.setFixedHeight(30)
-        w.setStyleSheet("background: #c8c8c8; border: 1px solid #bbbbbb;")
-        lay = QHBoxLayout(w)
-        lay.setContentsMargins(8, 2, 8, 2)
-        lay.setSpacing(0)
-        for c in cols:
-            lbl = QLabel(str(c))
-            lbl.setStyleSheet("background:transparent; border:none; font-size:12px; color:#333;")
-            lay.addWidget(lbl, stretch=1)
-        return w
-
-    def _make_stock_row(self, number: int, item: dict):
-        row = QWidget()
-        row.setFixedHeight(70)
-        bg = "#e8e8e8" if number % 2 == 0 else "#d8d8d8"
-        row.setStyleSheet(f"background: {bg}; border: 1px solid #bbbbbb;")
-
-        lay = QHBoxLayout(row)
-        lay.setContentsMargins(10, 4, 10, 4)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 6, 10, 6)
         lay.setSpacing(10)
 
-        # number
-        num_lbl = QLabel(str(number))
-        num_lbl.setFixedWidth(24)
-        num_lbl.setStyleSheet("background:transparent; border:none; font-size:13px;")
-        lay.addWidget(num_lbl)
+        # index number
+        num = QLabel(str(index + 1))
+        num.setFixedWidth(24)
+        num.setAlignment(Qt.AlignCenter)
+        num.setFont(QFont("", 11))
+        lay.addWidget(num)
 
-        # image thumbnail
-        img_lbl = QLabel()
-        img_lbl.setFixedSize(54, 54)
-        img_lbl.setStyleSheet("background:#b0b0b0; border-radius:4px; border:none;")
-        img_lbl.setAlignment(Qt.AlignCenter)
-        if item.get("image_path") and os.path.exists(item["image_path"]):
-            pix = QPixmap(item["image_path"]).scaled(54, 54, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            img_lbl.setPixmap(pix)
+        # thumbnail
+        thumb = QLabel()
+        thumb.setFixedSize(48, 48)
+        thumb.setAlignment(Qt.AlignCenter)
+        thumb.setStyleSheet("background: #b8b8b8; border-radius: 4px;")
+        if item.get("image"):
+            pix = QPixmap(item["image"]).scaled(
+                48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            thumb.setPixmap(pix)
         else:
-            img_lbl.setText("🦕")
-            img_lbl.setFont(QFont("Segoe UI Emoji", 22))
-        lay.addWidget(img_lbl)
+            thumb.setText("🦕")
+            thumb.setFont(QFont("", 18))
+        lay.addWidget(thumb)
 
-        # info block
+        # name / type / variant
         info = QWidget()
-        info.setStyleSheet("background:transparent; border:none;")
         info_lay = QVBoxLayout(info)
-        info_lay.setContentsMargins(0, 0, 0, 0)
-        info_lay.setSpacing(2)
+        info_lay.setContentsMargins(4, 0, 0, 0)
+        info_lay.setSpacing(1)
 
-        name_lbl = QLabel(item.get("name", ""))
-        name_lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        name_lbl.setStyleSheet("background:transparent; border:none;")
+        n = QLabel(item["name"])
+        n.setFont(QFont("", 11, QFont.Bold))
 
-        gene_lbl = QLabel(item.get("gene", ""))
-        gene_lbl.setFont(QFont("Segoe UI", 9))
-        gene_lbl.setStyleSheet("background:transparent; border:none; color:#555;")
+        t = QLabel(item["gene"])
+        t.setFont(QFont("", 9))
 
-        variant_row = QWidget()
-        variant_row.setStyleSheet("background:transparent; border:none;")
-        variant_row_lay = QHBoxLayout(variant_row)
-        variant_row_lay.setContentsMargins(0, 0, 0, 0)
-        variant_row_lay.setSpacing(4)
+        vrow = QHBoxLayout()
+        vrow.setSpacing(4)
+        vl = QLabel("Variant")
+        vl.setFont(QFont("", 9))
+        sw = QLabel()
+        sw.setFixedSize(14, 14)
+        sw.setStyleSheet(
+            f"background: {item['color']}; border-radius: 2px;"
+            " border: 1px solid #777;")
+        vrow.addWidget(vl)
+        vrow.addWidget(sw)
+        vrow.addStretch()
 
-        var_lbl = QLabel("Variant")
-        var_lbl.setFont(QFont("Segoe UI", 9))
-        var_lbl.setStyleSheet("background:transparent; border:none; color:#555;")
-
-        color = item.get("variant_color", QColor("#888888"))
-        swatch = color_swatch(color, 16)
-
-        variant_row_lay.addWidget(var_lbl)
-        variant_row_lay.addWidget(swatch)
-        variant_row_lay.addStretch()
-
-        info_lay.addWidget(name_lbl)
-        info_lay.addWidget(gene_lbl)
-        info_lay.addWidget(variant_row)
-
-        lay.addWidget(info, stretch=3)
+        info_lay.addWidget(n)
+        info_lay.addWidget(t)
+        info_lay.addLayout(vrow)
+        lay.addWidget(info, stretch=1)
 
         # price
-        price_lbl = QLabel(f"${item.get('price', 0):,.0f}")
-        price_lbl.setFont(QFont("Segoe UI", 11))
-        price_lbl.setStyleSheet("background:transparent; border:none;")
-        lay.addWidget(price_lbl, stretch=2)
+        price = QLabel(f"${item['price']}" if not item['price'].startswith('$') else item['price'])
+        price.setFont(QFont("", 11))
+        price.setFixedWidth(130)
+        price.setAlignment(Qt.AlignCenter)
+        lay.addWidget(price)
 
         # delete button
         del_btn = QPushButton("Delete")
-        del_btn.setFixedWidth(80)
-        del_btn.setFixedHeight(30)
+        del_btn.setFixedSize(74, 30)
         del_btn.setStyleSheet("""
             QPushButton {
-                background: white; border: 1px solid #aaa;
+                background: #e0e0e0; border: 1px solid #bbb;
                 border-radius: 14px; font-size: 12px; color: #333;
             }
-            QPushButton:hover { background: #ffdddd; border-color: #e53935; color: #c62828; }
+            QPushButton:hover   { background: #cccccc; }
+            QPushButton:pressed { background: #b0b0b0; }
         """)
-        del_btn.clicked.connect(lambda _, n=number-1: self._delete_item(n))
+        del_btn.clicked.connect(lambda: self.delete_requested.emit(self._index))
         lay.addWidget(del_btn)
 
-        return row
 
-    def _delete_item(self, index: int):
-        if 0 <= index < len(self.stock_data):
-            del self.stock_data[index]
-            self._rebuild_rows()
-
-    def refresh(self):
-        self._rebuild_rows()
-
-
-# ════════════════════════ Add Stock ═════════════════════════════
-class AddStockPage(QWidget):
-    def __init__(self, stock_data: list, stock_page: StockPage):
-        super().__init__()
-        self.stock_data = stock_data
-        self.stock_page = stock_page
-        self.variant_color = QColor("#2e7d32")
-        self.image_path = ""
-        self._build_ui()
-
-    def _build_ui(self):
-        root = QHBoxLayout(self)
-        root.setContentsMargins(40, 30, 40, 30)
-        root.setSpacing(60)
-
-        # ── left: form ──
-        form_widget = QWidget()
-        form = QGridLayout(form_widget)
-        form.setVerticalSpacing(16)
-        form.setHorizontalSpacing(16)
-        form.setColumnStretch(1, 1)
-
-        # Dinosaur name
-        self._add_label_input(form, 0, "Dinosaur", "Tyrannosaurus Rex")
-
-        # Gene
-        gene_lbl = QLabel("Gene")
-        gene_lbl.setStyleSheet(LABEL_STYLE)
-        gene_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.gene_cb = QComboBox()
-        self.gene_cb.addItems(["Carnivore", "Herbivore", "Omnivore", "Piscivore"])
-        self.gene_cb.setStyleSheet(INPUT_STYLE)
-        form.addWidget(gene_lbl, 1, 0)
-        form.addWidget(self.gene_cb, 1, 1)
-
-        # Price
-        self._add_label_input(form, 2, "Price", "$25,000,000", attr="price_inp")
-
-        # Gender
-        gender_lbl = QLabel("Gender")
-        gender_lbl.setStyleSheet(LABEL_STYLE)
-        gender_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self.gender_cb = QComboBox()
-        self.gender_cb.addItems(["Female", "Male"])
-        self.gender_cb.setStyleSheet(INPUT_STYLE)
-        form.addWidget(gender_lbl, 3, 0)
-        form.addWidget(self.gender_cb, 3, 1)
-
-        # Variant color
-        var_lbl = QLabel("Variant")
-        var_lbl.setStyleSheet(LABEL_STYLE)
-        var_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-        variant_row = QWidget()
-        variant_row_lay = QHBoxLayout(variant_row)
-        variant_row_lay.setContentsMargins(0, 0, 0, 0)
-        variant_row_lay.setSpacing(8)
-
-        self.variant_swatch = QLabel()
-        self.variant_swatch.setFixedSize(24, 24)
-        self.variant_swatch.setStyleSheet(
-            f"background:{self.variant_color.name()}; border:1px solid #888;"
-        )
-        self.variant_swatch.setCursor(Qt.PointingHandCursor)
-        self.variant_swatch.mousePressEvent = lambda e: self._pick_color()
-
-        variant_row_lay.addWidget(self.variant_swatch)
-        variant_row_lay.addStretch()
-
-        form.addWidget(var_lbl, 4, 0)
-        form.addWidget(variant_row, 4, 1)
-
-        # Save button
-        save_btn = QPushButton("Save")
-        save_btn.setStyleSheet(BTN_STYLE.format(bg=GREEN, hover=GREEN_HOVER))
-        save_btn.setFixedWidth(120)
-        save_btn.clicked.connect(self._save)
-        form.addWidget(save_btn, 5, 1, alignment=Qt.AlignLeft)
-
-        root.addWidget(form_widget, stretch=2)
-
-        # ── right: image upload ──
-        img_widget = QWidget()
-        img_lay = QVBoxLayout(img_widget)
-        img_lay.setAlignment(Qt.AlignCenter)
-        img_lay.setSpacing(12)
-
-        self.img_preview = QLabel()
-        self.img_preview.setFixedSize(150, 120)
-        self.img_preview.setStyleSheet("""
-            QLabel {
-                background: #c8c8c8;
-                border-radius: 10px;
-            }
-        """)
-        self.img_preview.setAlignment(Qt.AlignCenter)
-
-        sel_btn = QPushButton("Select Image")
-        sel_btn.setStyleSheet("""
-            QPushButton {
-                background: white; border: 1px solid #aaaaaa;
-                border-radius: 12px; font-size: 12px;
-                padding: 5px 16px; color: #333;
-            }
-            QPushButton:hover { background: #f0f0f0; }
-        """)
-        sel_btn.clicked.connect(self._pick_image)
-
-        img_lay.addStretch()
-        img_lay.addWidget(self.img_preview, alignment=Qt.AlignCenter)
-        img_lay.addWidget(sel_btn, alignment=Qt.AlignCenter)
-        img_lay.addStretch()
-
-        root.addWidget(img_widget, stretch=1)
-
-    def _add_label_input(self, form, row, label_text, placeholder="", attr=None):
-        lbl = QLabel(label_text)
-        lbl.setStyleSheet(LABEL_STYLE)
-        lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        inp = QLineEdit(placeholder)
-        inp.setStyleSheet(INPUT_STYLE)
-        form.addWidget(lbl, row, 0)
-        form.addWidget(inp, row, 1)
-        if attr:
-            setattr(self, attr, inp)
-        else:
-            setattr(self, label_text.lower().replace(" ", "_") + "_inp", inp)
-        return inp
-
-    def _pick_color(self):
-        color = QColorDialog.getColor(self.variant_color, self, "Pick Variant Color")
-        if color.isValid():
-            self.variant_color = color
-            self.variant_swatch.setStyleSheet(
-                f"background:{color.name()}; border:1px solid #888;"
-            )
-
-    def _pick_image(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp)"
-        )
-        if path:
-            self.image_path = path
-            pix = QPixmap(path).scaled(150, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.img_preview.setPixmap(pix)
-
-    def _save(self):
-        name  = self.dinosaur_inp.text().strip()
-        gene  = self.gene_cb.currentText()
-        price_str = self.price_inp.text().replace("$", "").replace(",", "").strip()
-        gender = self.gender_cb.currentText()
-
-        try:
-            price = float(price_str)
-        except ValueError:
-            price = 0.0
-
-        if not name:
-            print("Dinosaur name is required!")
-            return
-
-        self.stock_data.append({
-            "name":          name,
-            "gene":          gene,
-            "price":         price,
-            "gender":        gender,
-            "variant_color": QColor(self.variant_color),
-            "image_path":    self.image_path,
-        })
-        self.stock_page.refresh()
-        print(f"Added: {name} ({gene}) ${price:,.0f}")
-
-        # reset form
-        self.dinosaur_inp.clear()
-        self.price_inp.setText("$25,000,000")
-        self.image_path = ""
-        self.img_preview.setPixmap(QPixmap())
-        self.img_preview.setStyleSheet("QLabel { background: #c8c8c8; border-radius: 10px; }")
-
-
-# ════════════════════════ StorePage ═════════════════════════════
-class StorePage(QWidget):
-    """
-    Drop-in central widget.
-    Contains: Store Profile | Stock | Add Stock tabs.
-    """
-
-    def __init__(self, parent=None):
+class StockTab(QWidget):
+    def __init__(self, stock_data: list, parent=None):
         super().__init__(parent)
-        # shared mutable list so Stock and AddStock stay in sync
-        self._stock_data = [
-            {"name": "Tyrannosaurus Rex",  "gene": "Carnivore", "price": 25_000_000,
-             "gender": "Female", "variant_color": QColor("#2e7d32"), "image_path": ""},
-            {"name": "Phuwiangosaurus",    "gene": "Herbivore", "price": 50_000_000,
-             "gender": "Female", "variant_color": QColor("#f9a825"), "image_path": ""},
-            {"name": "Aptonoth",           "gene": "Herbivore", "price": 15_000_000,
-             "gender": "Male",   "variant_color": QColor("#6d4c41"), "image_path": ""},
-        ]
+        self._data = stock_data
+        self.setStyleSheet("background: white;")
         self._build_ui()
 
     def _build_ui(self):
@@ -541,64 +296,318 @@ class StorePage(QWidget):
         outer.setContentsMargins(30, 20, 30, 20)
         outer.setSpacing(0)
 
-        # card
-        card = QFrame()
-        card.setStyleSheet("""
-            QFrame {
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setStyleSheet("background: white;")
+
+        self._container = QWidget()
+        self._container.setStyleSheet("background: white;")
+        self._list_lay = QVBoxLayout(self._container)
+        self._list_lay.setContentsMargins(0, 0, 0, 0)
+        self._list_lay.setSpacing(8)
+        self._list_lay.setAlignment(Qt.AlignTop)
+
+        self._scroll.setWidget(self._container)
+        outer.addWidget(self._scroll)
+        self.refresh()
+
+    def refresh(self):
+        # clear
+        while self._list_lay.count():
+            item = self._list_lay.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not self._data:
+            empty = QLabel("Your stock is empty, Let's add something!")
+            empty.setAlignment(Qt.AlignCenter)
+            empty.setFont(QFont("", 13))
+            self._list_lay.setAlignment(Qt.AlignCenter)
+            self._list_lay.addWidget(empty)
+            return
+
+        self._list_lay.setAlignment(Qt.AlignTop)
+        for i, item in enumerate(self._data):
+            row = StockRow(i, item)
+            row.delete_requested.connect(self._delete)
+            self._list_lay.addWidget(row)
+
+    def _delete(self, idx: int):
+        name = self._data[idx]["name"]
+        reply = QMessageBox.question(
+            self, "Delete",
+            f"Remove {name} from stock?",
+            QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self._data.pop(idx)
+            self.refresh()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  TAB 3 – Add Stock
+# ══════════════════════════════════════════════════════════════════════════════
+class AddStockTab(QWidget):
+    item_added = Signal()
+
+    def __init__(self, stock_data: list, parent=None):
+        super().__init__(parent)
+        self._data = stock_data
+        self.setStyleSheet("background: white;")
+        self._build_ui()
+
+    def _build_ui(self):
+        root = QHBoxLayout(self)
+        root.setContentsMargins(60, 50, 60, 50)
+        root.setSpacing(0)
+
+        # ── left: form ──────────────────────────────────────────────────────
+        form_w = QWidget()
+        form_vlay = QVBoxLayout(form_w)
+        form_vlay.setContentsMargins(0, 0, 0, 0)
+        form_vlay.setSpacing(14)
+        form_vlay.setAlignment(Qt.AlignTop)
+
+        LABEL_W = 70
+        field_style = """
+            QLineEdit, QComboBox {
+                border: 1px solid #bbb;
+                border-radius: 12px;
+                padding: 3px 12px;
+                font-size: 12px;
                 background: white;
-                border: 1px solid #cccccc;
+                min-width: 200px;
+                max-width: 210px;
+                height: 26px;
+            }
+            QComboBox::drop-down { border: none; width: 20px; }
+        """
+
+        def make_row(label_text, widget):
+            row = QHBoxLayout()
+            row.setSpacing(12)
+            lbl = QLabel(label_text)
+            lbl.setFont(QFont("", 11))
+            lbl.setFixedWidth(LABEL_W)
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            row.addWidget(lbl)
+            row.addWidget(widget)
+            row.addStretch()
+            return row
+
+        self.dino_edit = QLineEdit()
+        self.dino_edit.setPlaceholderText("e.g. Tyrannosaurus Rex")
+        self.dino_edit.setStyleSheet(field_style)
+        form_vlay.addLayout(make_row("Dinosaur", self.dino_edit))
+
+        self.gene_combo = QComboBox()
+        self.gene_combo.addItems(["Carnivore", "Herbivore", "Omnivore"])
+        self.gene_combo.setStyleSheet(field_style)
+        form_vlay.addLayout(make_row("Gene", self.gene_combo))
+
+        self.price_edit = QLineEdit()
+        self.price_edit.setPlaceholderText("e.g. $25,000,000")
+        self.price_edit.setStyleSheet(field_style)
+        form_vlay.addLayout(make_row("Price", self.price_edit))
+
+        self.gender_combo = QComboBox()
+        self.gender_combo.addItems(["Female", "Male"])
+        self.gender_combo.setStyleSheet(field_style)
+        form_vlay.addLayout(make_row("Gender", self.gender_combo))
+
+        self._swatch = ColorSwatch(QColor("#1a7a1a"))
+        form_vlay.addLayout(make_row("Variant", self._swatch))
+
+        # Save button indented to align with fields
+        save_row = QHBoxLayout()
+        save_row.setSpacing(12)
+        save_pad = QWidget(); save_pad.setFixedWidth(LABEL_W + 12)
+        save_btn = QPushButton("Save")
+        save_btn.setFixedSize(90, 32)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background: #0b7a12; color: white;
+                border-radius: 14px; font-size: 13px; font-weight: bold;
+            }
+            QPushButton:hover   { background: #0d9918; }
+            QPushButton:pressed { background: #085c0d; }
+        """)
+        save_btn.clicked.connect(self._save)
+        save_row.addWidget(save_pad)
+        save_row.addWidget(save_btn)
+        save_row.addStretch()
+        form_vlay.addLayout(save_row)
+
+        root.addWidget(form_w, stretch=1)
+
+        # ── vertical divider ────────────────────────────────────────────────
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        line.setStyleSheet("color: #ddd;")
+        root.addWidget(line)
+
+        # ── right: image picker ─────────────────────────────────────────────
+        right = QWidget()
+        right_lay = QVBoxLayout(right)
+        right_lay.setContentsMargins(40, 10, 0, 0)
+        right_lay.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self._img_picker = ImagePicker(placeholder_size=(180, 140), circular=False)
+        right_lay.addWidget(self._img_picker)
+        right_lay.addStretch()
+        root.addWidget(right, stretch=1)
+
+    def _save(self):
+        name  = self.dino_edit.text().strip()
+        price = self.price_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Missing field", "Please enter a dinosaur name.")
+            return
+        if not price:
+            QMessageBox.warning(self, "Missing field", "Please enter a price.")
+            return
+        cleaned = price.replace(",", "").replace("$", "").strip()
+        if not cleaned.isdigit():
+            QMessageBox.warning(self, "Invalid price", "Price must be a number.")
+            return
+
+        self._data.append({
+            "name":   name,
+            "gene":   self.gene_combo.currentText(),
+            "price":  price,
+            "gender": self.gender_combo.currentText(),
+            "color":  self._swatch.color().name(),
+            "image":  self._img_picker.path(),
+        })
+        QMessageBox.information(self, "Saved",
+                                f"{name} has been added to your stock!")
+        self.item_added.emit()
+        self._clear_form()
+
+    def _clear_form(self):
+        self.dino_edit.clear()
+        self.price_edit.clear()
+        self.gene_combo.setCurrentIndex(0)
+        self.gender_combo.setCurrentIndex(0)
+        self._swatch.reset()
+        self._img_picker.clear()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Custom tab container matching the screenshot header style exactly
+# ══════════════════════════════════════════════════════════════════════════════
+class StoreTabWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._stock_data = []
+        self._build_ui()
+
+    def _build_ui(self):
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(40, 20, 40, 20)
+        outer.setSpacing(0)
+
+        # White card with border
+        card = QFrame()
+        card.setObjectName("card")
+        card.setFrameShape(QFrame.StyledPanel)
+        card.setStyleSheet("""
+            QFrame#card {
+                background: white;
+                border: 1px solid #c8c8c8;
                 border-radius: 4px;
             }
         """)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(0)
+        card_lay = QVBoxLayout(card)
+        card_lay.setContentsMargins(0, 0, 0, 0)
+        card_lay.setSpacing(0)
 
-        # tab bar
+        # ── tab header ──────────────────────────────────────────────────────
         tab_bar = QWidget()
-        tab_bar.setStyleSheet("background: transparent;")
-        tb_lay = QHBoxLayout(tab_bar)
-        tb_lay.setContentsMargins(0, 0, 0, 0)
-        tb_lay.setSpacing(0)
+        tab_bar.setFixedHeight(54)
+        tab_bar.setStyleSheet("background: transparent; border: none;")
+        tab_bar_lay = QHBoxLayout(tab_bar)
+        tab_bar_lay.setContentsMargins(0, 0, 0, 0)
+        tab_bar_lay.setSpacing(0)
 
-        self.tab_profile  = make_tab_btn("Store Profile")
-        self.tab_stock    = make_tab_btn("Stock")
-        self.tab_addstock = make_tab_btn("Add stock")
-        self.tabs = [self.tab_profile, self.tab_stock, self.tab_addstock]
+        self._tab_btns = []
+        for i, name in enumerate(["Store Profile", "Stock", "Add stock"]):
+            btn = QPushButton(name)
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFont(QFont("", 12))
+            btn.setStyleSheet(self._tab_style(False))
+            btn.clicked.connect(lambda _, idx=i: self._switch(idx))
+            self._tab_btns.append(btn)
+            tab_bar_lay.addWidget(btn)
 
-        tb_lay.addWidget(self.tab_profile)
-        tb_lay.addWidget(self.tab_stock)
-        tb_lay.addWidget(self.tab_addstock)
-        tb_lay.addStretch()
+        tab_bar_lay.addStretch()
 
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #cccccc;")
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background: #c8c8c8; border: none;")
 
-        # pages
-        self.stack = QStackedWidget()
+        card_lay.addWidget(tab_bar)
+        card_lay.addWidget(sep)
 
-        self.page_profile  = StoreProfilePage()
-        self.page_stock    = StockPage(self._stock_data)
-        self.page_addstock = AddStockPage(self._stock_data, self.page_stock)
+        # ── stacked pages ───────────────────────────────────────────────────
+        self._stack = QStackedWidget()
+        self._stack.setStyleSheet("background: white;")
 
-        self.stack.addWidget(self.page_profile)
-        self.stack.addWidget(self.page_stock)
-        self.stack.addWidget(self.page_addstock)
+        self._profile_tab  = StoreProfileTab()
+        self._stock_tab    = StockTab(self._stock_data)
+        self._addstock_tab = AddStockTab(self._stock_data)
+        self._addstock_tab.item_added.connect(self._stock_tab.refresh)
 
-        card_layout.addWidget(tab_bar)
-        card_layout.addWidget(sep)
-        card_layout.addWidget(self.stack)
+        self._stack.addWidget(self._profile_tab)
+        self._stack.addWidget(self._stock_tab)
+        self._stack.addWidget(self._addstock_tab)
 
+        card_lay.addWidget(self._stack)
         outer.addWidget(card)
-
-        # connect
-        self.tab_profile.clicked.connect(lambda: self._switch(0))
-        self.tab_stock.clicked.connect(lambda: self._switch(1))
-        self.tab_addstock.clicked.connect(lambda: self._switch(2))
 
         self._switch(0)
 
-    def _switch(self, index: int):
-        self.stack.setCurrentIndex(index)
-        apply_tab_styles(self.tabs, index)
+    @staticmethod
+    def _tab_style(selected: bool) -> str:
+        if selected:
+            return """
+                QPushButton {
+                    background: white;
+                    border: none;
+                    font-size: 13px;
+                    font-weight: bold;
+                    padding: 12px 32px;
+                    color: #111;
+                }
+            """
+        return """
+            QPushButton {
+                background: transparent;
+                border: none;
+                font-size: 13px;
+                font-weight: normal;
+                padding: 12px 32px;
+                color: #555;
+            }
+            QPushButton:hover { color: #111; }
+        """
+
+    def _switch(self, idx: int):
+        self._stack.setCurrentIndex(idx)
+        for i, btn in enumerate(self._tab_btns):
+            btn.setChecked(i == idx)
+            btn.setStyleSheet(self._tab_style(i == idx))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Central widget
+# ══════════════════════════════════════════════════════════════════════════════
+class StorePage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setStyleSheet("background: #ebebeb;")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(StoreTabWidget())
+
