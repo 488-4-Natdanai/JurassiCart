@@ -28,6 +28,7 @@ class CartItemRow(QFrame):
         self._build_ui()
 
     def _build_ui(self):
+        """Build the cart item row with checkbox, icon, info, quantity controls, and delete button."""
         self.setStyleSheet("CartItemRow{background:#e8e8e8;border-radius:10px;}")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
@@ -123,6 +124,7 @@ class CartItemRow(QFrame):
         row.addWidget(btn_del, alignment=Qt.AlignVCenter)
 
     def _qty_up(self):
+        """Increment item quantity by 1, capped at available stock."""
         # cap at available stock in DB
         dino = db.get_dinosaur(self.item.get("dino_id", ""))
         max_stock = int(dino["stock"]) if dino else 999
@@ -138,6 +140,7 @@ class CartItemRow(QFrame):
         self.changed.emit()
 
     def _qty_dn(self):
+        """Decrement item quantity by 1, minimum 1."""
         if int(self.item["qty"]) > 1:
             self.item["qty"] = int(self.item["qty"]) - 1
             self.qty_lbl.setText(str(self.item["qty"]))
@@ -145,10 +148,12 @@ class CartItemRow(QFrame):
             self.changed.emit()
 
     def _on_check(self):
+        """Update the item's checked state and emit changed signal."""
         self.item["checked"] = self.chk.isChecked()
         self.changed.emit()
 
     def _on_delete(self):
+        """Remove this item from the cart and destroy the widget."""
         db.remove_from_cart(self.item["cart_id"])
         self.deleted.emit(self.item["cart_id"])
         self.setParent(None)
@@ -192,6 +197,7 @@ class CartPage(QWidget):
         self._refresh_total()
 
     def _reload_from_db(self):
+        """Clear all row widgets and reload cart items from the database."""
         # clear existing rows
         for row in self.rows:
             row.setParent(None)
@@ -210,6 +216,7 @@ class CartPage(QWidget):
         self._refresh_total()
 
     def _build_ui(self):
+        """Build the cart page layout with item list, totals bar, and order button."""
         self.setStyleSheet("background:#f0f0f0;")
         outer = QVBoxLayout(self)
         outer.setContentsMargins(30, 20, 30, 0)
@@ -288,6 +295,7 @@ class CartPage(QWidget):
         outer.addWidget(bottom)
 
     def _add_row(self, item: dict):
+        """Create a CartItemRow widget and insert it into the scroll layout."""
         row = CartItemRow(item)
         row.changed.connect(self._refresh_total)
         row.deleted.connect(self._on_row_deleted)
@@ -296,20 +304,24 @@ class CartPage(QWidget):
         self.rows.append(row)
 
     def _on_row_deleted(self, cart_id: str):
+        """Remove the deleted row from the internal list and refresh the total."""
         self.rows = [r for r in self.rows if r.item.get("cart_id") != cart_id]
         self._refresh_total()
 
     def _refresh_total(self):
+        """Recalculate and display the total price and item count for checked items."""
         checked = [r.item for r in self.rows if not r.isHidden() and r.item.get("checked")]
         total = sum(int(i["price"]) * int(i["qty"]) for i in checked)
         count = sum(int(i["qty"]) for i in checked)
         self.lbl_total.setText(f"Total({count} item{'s' if count != 1 else ''}): ${total:,}")
 
     def _select_all(self, state):
+        """Check or uncheck all cart item rows based on the select-all checkbox state."""
         for row in self.rows:
             row.chk.setChecked(bool(state))
 
     def _on_order(self):
+        """Validate selection and emit go_checkout signal with checked items and wallet balance."""
         checked = [r.item for r in self.rows if r.item.get("checked")]
         if not checked:
             QMessageBox.warning(self, "No items", "Please select at least one item.")
@@ -412,6 +424,7 @@ class CheckoutPage(QWidget):
         self._build_ui()
 
     def _build_ui(self):
+        """Build the full checkout layout with buyer info, shipping fields, and order summary."""
         self.setStyleSheet("background:#f0f0f0;")
         root = QHBoxLayout(self)
         root.setContentsMargins(30, 24, 30, 24)
@@ -608,15 +621,18 @@ class CheckoutPage(QWidget):
         root.addWidget(right, stretch=0)
 
     def _section_label(self, text):
+        """Return a bold section header label."""
         lbl = QLabel(text); lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
         lbl.setStyleSheet("color:#333;"); return lbl
 
     def _add_divider(self, layout):
+        """Insert a horizontal divider line into the given layout."""
         line = QFrame(); line.setFrameShape(QFrame.HLine)
         line.setStyleSheet("color:#e0e0e0;"); line.setFixedHeight(1)
         layout.addWidget(line)
 
     def _on_back(self):
+        """Navigate back to the cart page via the parent MainWindow."""
         # MainWindow will handle navigation
         parent = self.parent()
         while parent and not hasattr(parent, 'go'):
@@ -625,6 +641,7 @@ class CheckoutPage(QWidget):
             parent.go(parent.cart)
 
     def _validate(self) -> bool:
+        """Validate all required checkout fields and highlight any that are empty or invalid."""
         required = [
             (self.field_email,    "Email"),
             (self.field_phone,    "Phone Number"),
@@ -655,6 +672,7 @@ class CheckoutPage(QWidget):
         return True
 
     def _on_confirm(self):
+        """Validate the order, deduct wallet, place the order, and navigate to home on success."""
         if not self.cart_items:
             QMessageBox.warning(self, "Empty Order", "No items selected."); return
         if not self._validate():

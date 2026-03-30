@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────
 
     def _on_login_success(self, user: dict):
+        """Store the logged-in user and load their data into all relevant pages."""
         self.current_user = user
         self.account.load_user(user)
         self.cart.load_user(user)
@@ -92,10 +93,12 @@ class MainWindow(QMainWindow):
         self.go(self.home)
 
     def _on_go_checkout(self, items: list, wallet: int):
+        """Load checkout data and navigate to the checkout page."""
         self.checkout.load(items, wallet, self.current_user)
         self.go(self.checkout)
 
     def _on_add_to_cart(self, dino: dict):
+        """Add a dino to the cart if the user is logged in, otherwise prompt login."""
         if not self._require_login():
             return
         self.cart.add_item(dino)
@@ -118,6 +121,7 @@ class MainWindow(QMainWindow):
 
 
     def _on_logout(self):
+        """Clear the current session and navigate to the home page."""
         self.current_user = None
         self.go(self.home)
 
@@ -128,15 +132,23 @@ class MainWindow(QMainWindow):
         self._filter_menu.exec(pos)
 
     def _on_filter_select(self, action):
+        """Apply the selected gene filter and refresh the home page."""
         value = action.data()
         self._current_filter = value
-        # update checkmarks
         for act in self._filter_menu.actions():
             act.setChecked(act.data() == value)
-        # apply filter — only affects home page
-        self.home.refresh(gene_filter=value)
+        self.home.refresh(gene_filter=value, search=self.search_bar.text())
+
+    def _on_search(self):
+        """Read the search bar text and refresh the home page with the query."""
+        query = self.search_bar.text().strip()
+        # navigate to home if not already there
+        if self.stack.currentWidget() != self.home:
+            self.go(self.home)
+        self.home.refresh(gene_filter=self._current_filter, search=query)
 
     def _on_profile_click(self):
+        """Navigate to the account page if logged in, otherwise go to login."""
         if self.current_user:
             self.go(self.account)
         else:
@@ -147,7 +159,7 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────
 
     def go(self, page):
-
+        """Navigate to a page, pushing the current page onto the back history."""
         current = self.stack.currentWidget()
 
         if current != page:
@@ -158,7 +170,7 @@ class MainWindow(QMainWindow):
 
 
     def go_back(self):
-
+        """Navigate to the previous page in the back history."""
         if not self.history_back:
             return
 
@@ -170,7 +182,7 @@ class MainWindow(QMainWindow):
 
 
     def go_forward(self):
-
+        """Navigate to the next page in the forward history."""
         if not self.history_forward:
             return
 
@@ -186,7 +198,7 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────
 
     def create_menu(self):
-
+        """Build the menu bar with Edit, Navigation, Store, and Account menus."""
         edit_menu = self.menuBar().addMenu("Edit")
 
         quit_btn = QAction("Quit", self)
@@ -243,7 +255,7 @@ class MainWindow(QMainWindow):
     # ─────────────────────────────
 
     def create_toolbar(self):
-
+        """Build the top toolbar with logo, search bar, filter, cart, and profile buttons."""
         toolbar = QToolBar("TopBar")
         toolbar.setMovable(False)
 
@@ -357,7 +369,8 @@ class MainWindow(QMainWindow):
         self.logo.clicked.connect(lambda: self.go(self.home))
         self.name_btn.clicked.connect(lambda: self.go(self.home))
 
-        search_icon.clicked.connect(lambda: self.go(self.search) if hasattr(self, 'search') else None)
+        search_icon.clicked.connect(self._on_search)
+        self.search_bar.returnPressed.connect(self._on_search)
 
         self.cart_btn.clicked.connect(lambda: self.go(self.cart) if self._require_login() else None)
         self.profile_btn.clicked.connect(self._on_profile_click)
@@ -405,7 +418,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, toolbar)
 
 def main():
-
+    """Entry point: initialise the Qt app, seed the database, and launch the main window."""
     myappid = "dme.jurassicart.app"
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
