@@ -4,9 +4,9 @@ import os
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QFrame, QStackedWidget,
-    QDateEdit, QDialog, QCheckBox
+    QDateEdit, QDialog, QCheckBox, QMessageBox
 )
-from PySide6.QtCore import Qt, Signal, QDate, QPoint, QSize
+from PySide6.QtCore import Qt, Signal, QDate, QPoint, QSize, QTimer
 from PySide6.QtGui import QFont, QPixmap, QPainter, QColor, QBrush, QPolygon, QPen, QIcon
 
 DINO_LOGO_PATH = "dino_logo.png"    
@@ -517,8 +517,59 @@ class WalletPage(QWidget):
             
             print(f"Purchased Done: ${self.current_balance:,}")
 
+class MobileStylePasswordField(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._real_password = ""  # ตัวแปรเก็บรหัสผ่านจริงๆ ที่อยู่เบื้องหลัง
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._mask_all)
+        self.textEdited.connect(self._on_text_edited)
+        
+        # ปิด EchoMode เป็นปกติ เพราะเราจะเอาจุด (•) มาใส่เอง
+        self.setEchoMode(QLineEdit.Normal)
+
+    def _on_text_edited(self, text):
+        # 1. เก็บอัปเดตรหัสผ่านของจริงไว้เบื้องหลัง
+        if len(text) > len(self._real_password):
+            # ถ้าพิมพ์เพิ่ม เอาตัวอักษรใหม่มาต่อท้าย
+            new_chars = text[len(self._real_password):]
+            self._real_password += new_chars
+        else:
+            # ถ้ากดลบ (Backspace) ให้ตัดรหัสผ่านออกตามจำนวนที่เหลือ
+            self._real_password = self._real_password[:len(text)]
+        
+        # 2. จำลองหน้าตาที่จะแสดงผล (เช่น เปลี่ยนเป็น •••4)
+        if len(self._real_password) > 0:
+            masked_text = "•" * (len(self._real_password) - 1) + self._real_password[-1]
+        else:
+            masked_text = ""
+            
+        # อัปเดตข้อความบนหน้าจอ
+        self.blockSignals(True)
+        self.setText(masked_text)
+        self.blockSignals(False)
+        
+        # 3. เริ่มจับเวลา 800 มิลลิวินาที (0.8 วินาที) ถ้านิ่งไป ให้เปลี่ยนตัวสุดท้ายเป็นจุด
+        self._timer.start(800)
+
+    def _mask_all(self):
+        # เปลี่ยนทุกตัวเป็นจุด (เช่น ••••)
+        self.blockSignals(True)
+        self.setText("•" * len(self._real_password))
+        self.blockSignals(False)
+        
+    def get_password(self):
+        # ฟังก์ชันเอาไว้ส่งรหัสผ่านจริงๆ ไปตรวจสอบ
+        return self._real_password
+        
+    def clear_password(self):
+        # ฟังก์ชันล้างข้อมูล
+        self._real_password = ""
+        self.clear()
+
 # ─────────────────────────────────────────────
-# Page 2 — Change Password
+# Page 2 — Change Password 
 # ─────────────────────────────────────────────
 class ChangePasswordPage(QWidget):
     def __init__(self, parent=None):
@@ -537,19 +588,28 @@ class ChangePasswordPage(QWidget):
             lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             lbl.setFont(QFont("Segoe UI", 10)); lbl.setStyleSheet("color:#333;")
             row.addWidget(lbl)
+            
             field = QLineEdit()
-            field.setEchoMode(QLineEdit.Password)
+            # ใช้ PasswordEchoOnEdit เพื่อให้แสดงตัวที่เพิ่งพิมพ์ แล้วค่อยเปลี่ยนเป็นจุด
+            field.setEchoMode(QLineEdit.PasswordEchoOnEdit)
             field.setFont(QFont("Segoe UI", 10))
             field.setFixedHeight(34); field.setMinimumWidth(280)
             field.setStyleSheet(INPUT_STYLE)
+            
             row.addWidget(field); row.addStretch()
-            return row
+            return row, field
 
-        layout.addLayout(make_field("Current Password"))
+
+        row_current, self.current_pw_field = make_field("Current Password")
+        layout.addLayout(row_current)
         layout.addSpacing(30)
-        layout.addLayout(make_field("New Password"))
+        
+        row_new, self.new_pw_field = make_field("New Password")
+        layout.addLayout(row_new)
         layout.addSpacing(14)
-        layout.addLayout(make_field("Confirm Password"))
+        
+        row_confirm, self.confirm_pw_field = make_field("Confirm Password")
+        layout.addLayout(row_confirm)
         layout.addSpacing(20)
 
         btn_row = QHBoxLayout()
@@ -559,11 +619,103 @@ class ChangePasswordPage(QWidget):
         confirm_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
         confirm_btn.setCursor(Qt.PointingHandCursor)
         confirm_btn.setStyleSheet(OVAL_BTN_GREEN.format(r=19))
+        
+        confirm_btn.clicked.connect(self._validate_and_change_password)
+        
         btn_row.addWidget(confirm_btn); btn_row.addStretch()
         layout.addLayout(btn_row)
         layout.addStretch()
 
+    def _show_message(self, title, text, is_error=True):
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(QMessageBox.Warning if is_error else QMessageBox.Information)
+        
 
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: white;
+            }
+            QLabel {
+                color: black;
+                font-size: 13px;
+                font-family: 'Segoe UI';
+            }
+            QPushButton {
+                background-color: #f0f0f0;
+                color: black;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                padding: 6px 16px;
+                font-family: 'Segoe UI';
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+        """)
+        msg.exec()
+
+    def _validate_and_change_password(self):
+        current_pw = self.current_pw_field.text()
+        new_pw = self.new_pw_field.text()
+        confirm_pw = self.confirm_pw_field.text()
+
+        if not current_pw or not new_pw or not confirm_pw:
+            self._show_message("Incomplete", "Please fill in all fields.")
+            return
+
+        if len(new_pw) < 8:
+            self._show_message("Invalid Password", "Password must be at least 8 characters long.")
+            return
+            
+        if not any(char.isalpha() for char in new_pw):
+            self._show_message("Invalid Password", "Password must contain at least one letter.")
+            return
+            
+        if not any(char.isdigit() for char in new_pw):
+            self._show_message("Invalid Password", "Password must contain at least one number.")
+            return
+
+        if new_pw != confirm_pw:
+            self._show_message("Mismatch", "New password and Confirm password do not match.")
+            return
+   
+        self._show_message("Success", "Your password has been changed successfully!", is_error=False)
+  
+        self.current_pw_field.clear()
+        self.new_pw_field.clear()
+        self.confirm_pw_field.clear()
+
+def make_field(label_text):
+            row = QHBoxLayout(); row.setSpacing(12)
+            lbl = QLabel(label_text); lbl.setFixedWidth(150)
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            lbl.setFont(QFont("Segoe UI", 10)); lbl.setStyleSheet("color:#333;")
+            row.addWidget(lbl)
+            
+            # --- เปลี่ยนมาใช้คลาสใหม่ตรงนี้ ---
+            field = MobileStylePasswordField()
+            field.setFont(QFont("Segoe UI", 10))
+            field.setFixedHeight(34); field.setMinimumWidth(280)
+            field.setStyleSheet(INPUT_STYLE)
+            # -------------------------------
+            
+            row.addWidget(field); row.addStretch()
+            return row, field
+
+def _validate_and_change_password(self):
+        # ใช้ .get_password() แทน .text()
+        current_pw = self.current_pw_field.get_password()
+        new_pw = self.new_pw_field.get_password()
+        confirm_pw = self.confirm_pw_field.get_password()
+
+        # ... (เงื่อนไขตรวจ 8 ตัวอักษร ตรวจตัวเลข เหมือนเดิมเป๊ะๆ) ...
+
+        # ถ้าสำเร็จ เปลี่ยนมาใช้ .clear_password() เพื่อล้างข้อมูลตอนจบ
+        self.current_pw_field.clear_password()
+        self.new_pw_field.clear_password()
+        self.confirm_pw_field.clear_password()
 # ─────────────────────────────────────────────
 # Top Navigation Bar
 # ─────────────────────────────────────────────
