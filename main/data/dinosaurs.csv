@@ -1,5 +1,5 @@
 dino_id,store_id,name,gene,gender,age,color,price,stock,image,description,created_at
-a20fa722,a87436f2,Tyrannosaurus Rex,Carnivore,Male,8,#2d7a2d,25000000,4,,"The apex predator. Massive jaws, tiny arms, maximum attitude.",2026-03-31 00:46:16
+a20fa722,a87436f2,Tyrannosaurus Rex,Carnivore,Male,8,#2d7a2d,25000000,3,,"The apex predator. Massive jaws, tiny arms, maximum attitude.",2026-03-31 00:46:16
 60f7b3c6,a87436f2,Triceratops,Herbivore,Female,12,#8b6914,18000000,7,,Three-horned gentle giant. Great for garden patrol.,2026-03-31 00:46:16
 dd641681,a87436f2,Velociraptor,Carnivore,Male,3,#c8a000,12000000,10,,Highly intelligent pack hunter. Requires experienced owner.,2026-03-31 00:46:16
 df8c064f,a87436f2,Brachiosaurus,Herbivore,Female,20,#4a7c59,40000000,3,,"Tallest dino available. Eats treetops, very calm temperament.",2026-03-31 00:46:16
@@ -11,3 +11,4 @@ ccd9d7ed,a87436f2,Spinosaurus,Omnivore,Female,11,#1e6b8a,35000000,4,,"Larger tha
 ad209158,60b5c2aa,Tintrai,Carnivore,Female,0,#005500,67,0,,,2026-03-31 01:55:25
 1f789810,60b5c2aa,9Mix,Herbivore,Male,0,#aa55ff,100,2,,,2026-03-31 03:45:15
 fa765635,60b5c2aa,9Klaoooooo,Carnivore,Male,0,#1a7a1a,101,2,C:/Users/Asus/OneDrive - Khon Kaen University/Pictures/Screenshots/Screenshot 2025-10-29 015154.png,,2026-03-31 03:46:13
+45c4d419,60b5c2aa,Topong,Carnivore,Male,0,#1a7a1a,9999,5,C:/Users/jbjb5/OneDrive/Documents/GitHub/JurassiCart/main/resorces/Screenshot_2025-10-29_015154.png,,2026-03-31 03:55:59
