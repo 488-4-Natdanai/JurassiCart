@@ -130,13 +130,12 @@ class StoreProfileTab(QWidget):
         name_lbl.setFixedWidth(90)
         name_lbl.setFont(QFont("", 11))
         name_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        name_lbl.setStyleSheet("")
 
-        self.store_name_edit = QLineEdit()
-        self.store_name_edit.setText("Jane Doe")
-        self.store_name_edit.setFixedWidth(210)
-        self.store_name_edit.setFixedHeight(28)
-        self.store_name_edit.setStyleSheet("""
+        self.store_name = QLineEdit()
+        self.store_name.setPlaceholderText("e.g. Jane Doe")
+        self.store_name.setFixedWidth(210)
+        self.store_name.setFixedHeight(28)
+        self.store_name.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #bbb;
                 border-radius: 12px;
@@ -147,7 +146,7 @@ class StoreProfileTab(QWidget):
         """)
 
         name_row.addWidget(name_lbl)
-        name_row.addWidget(self.store_name_edit)
+        name_row.addWidget(self.store_name)
         name_row.addStretch()
         left_lay.addLayout(name_row)
 
@@ -191,6 +190,9 @@ class StoreProfileTab(QWidget):
         root.addWidget(right, stretch=1)
 
     def _save(self):
+        if not self.store_name.text().strip():
+            QMessageBox.warning(self, "Invalid", "Please enter a store name.")
+            return
         QMessageBox.information(self, "Saved", "Store profile saved successfully!")
 
 
@@ -215,7 +217,6 @@ class StockRow(QWidget):
         num.setFixedWidth(24)
         num.setAlignment(Qt.AlignCenter)
         num.setFont(QFont("", 11))
-        num.setStyleSheet("")
         lay.addWidget(num)
 
         # thumbnail
@@ -243,13 +244,11 @@ class StockRow(QWidget):
 
         t = QLabel(item["gene"])
         t.setFont(QFont("", 9))
-        t.setStyleSheet("color: #555;")
 
         vrow = QHBoxLayout()
         vrow.setSpacing(4)
         vl = QLabel("Variant")
         vl.setFont(QFont("", 9))
-        vl.setStyleSheet("color: #555;")
         sw = QLabel()
         sw.setFixedSize(14, 14)
         sw.setStyleSheet(
@@ -265,11 +264,10 @@ class StockRow(QWidget):
         lay.addWidget(info, stretch=1)
 
         # price
-        price = QLabel(item["price"])
+        price = QLabel(f"${item['price']}" if not item['price'].startswith('$') else item['price'])
         price.setFont(QFont("", 11))
         price.setFixedWidth(130)
         price.setAlignment(Qt.AlignCenter)
-        price.setStyleSheet("")
         lay.addWidget(price)
 
         # delete button
@@ -326,7 +324,6 @@ class StockTab(QWidget):
             empty = QLabel("Your stock is empty, Let's add something!")
             empty.setAlignment(Qt.AlignCenter)
             empty.setFont(QFont("", 13))
-            empty.setStyleSheet("color: #888;")
             self._list_lay.setAlignment(Qt.AlignCenter)
             self._list_lay.addWidget(empty)
             return
@@ -469,6 +466,10 @@ class AddStockTab(QWidget):
         if not price:
             QMessageBox.warning(self, "Missing field", "Please enter a price.")
             return
+        cleaned = price.replace(",", "").replace("$", "").strip()
+        if not cleaned.isdigit():
+            QMessageBox.warning(self, "Invalid price", "Price must be a number.")
+            return
 
         self._data.append({
             "name":   name,
@@ -508,9 +509,10 @@ class StoreTabWidget(QWidget):
 
         # White card with border
         card = QFrame()
+        card.setObjectName("card")
         card.setFrameShape(QFrame.StyledPanel)
         card.setStyleSheet("""
-            QFrame {
+            QFrame#card {
                 background: white;
                 border: 1px solid #c8c8c8;
                 border-radius: 4px;
