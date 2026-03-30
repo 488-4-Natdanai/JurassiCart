@@ -18,6 +18,7 @@ USER_AVATAR_PATH = os.path.join(_DIR, "resorces", "user.png")
 # (Used for icons without provided images like 'back' and 'cart')
 # ─────────────────────────────────────────────
 def create_simple_icon(type, size=32, color="#ffffff"):
+    """Draw and return a simple QPainter-based icon for 'back' or 'cart' types."""
     px = QPixmap(size, size)
     px.fill(Qt.transparent)
     p = QPainter(px)
@@ -78,6 +79,7 @@ INPUT_STYLE = """
 """
 
 def combo_style():
+    """Return the stylesheet string for a rounded QComboBox."""
     return f"""
     QComboBox {{
         border: 1px solid #ccc; border-radius: 17px;
@@ -99,6 +101,7 @@ def combo_style():
 """
 
 def date_style():
+    """Return the stylesheet string for a rounded QDateEdit."""
     return f"""
     QDateEdit {{
         border: 1px solid #ccc; border-radius: 17px;
@@ -145,11 +148,13 @@ class TabBar(QWidget):
         self._update_styles()
 
     def _on_click(self, idx):
+        """Handle tab button click, update active index, and emit tab_changed."""
         self.active = idx
         self._update_styles()
         self.tab_changed.emit(idx)
 
     def _update_styles(self):
+        """Apply active/inactive styles to all tab buttons."""
         for i, btn in enumerate(self._buttons):
             if i == self.active:
                 btn.setStyleSheet("""
@@ -296,6 +301,7 @@ class ProfilePage(QWidget):
         root.addLayout(avatar_layout, stretch=1)
 
     def load_user(self, user: dict):
+        """Populate profile fields from the given user dict."""
         self._user_id = user["user_id"]
         self.username_lbl.setText(user.get("username", ""))
         self.fields["name"].setText(user.get("name", ""))
@@ -303,6 +309,7 @@ class ProfilePage(QWidget):
         self.fields["phone"].setText(user.get("phone", ""))
 
     def _on_save(self):
+        """Save updated profile fields to the database and show a confirmation dialog."""
         if not self._user_id:
             return
         db.update_user(
@@ -437,6 +444,7 @@ class PurchaseDialog(QDialog):
         self.btn_purchase.clicked.connect(self.accept)
 
     def _on_check(self, state):
+        """Enable or disable the purchase button based on checkbox state."""
         self.btn_purchase.setEnabled(state == Qt.Checked)
 
 # ─────────────────────────────────────────────
@@ -507,6 +515,7 @@ class WalletPage(QWidget):
         root.addLayout(right, stretch=2)
 
     def _open_purchase_dialog(self, amount):
+        """Open the payment dialog and add funds to the wallet if confirmed."""
         dialog = PurchaseDialog(amount, self)
         if dialog.exec() == QDialog.Accepted:
             if self._user_id:
@@ -516,8 +525,8 @@ class WalletPage(QWidget):
             self.balance_lbl.setText(f"${self.current_balance:,}")
 
     def load_user(self, user: dict):
+        """Load wallet balance and user ID from the given user dict."""
         self._user_id = user["user_id"]
-        self.current_balance = int(user.get("wallet", 0))
         self.balance_lbl.setText(f"${self.current_balance:,}")
 
 # ─────────────────────────────────────────────
@@ -601,9 +610,11 @@ class ChangePasswordPage(QWidget):
         layout.addStretch()
 
     def load_user(self, user: dict):
+        """Store the user ID for use when changing the password."""
         self._user_id = user["user_id"]
 
     def _on_confirm(self):
+        """Validate inputs, verify current password, and update to the new password."""
         from PySide6.QtWidgets import QMessageBox
         current  = self.f_current.text()
         new_pw   = self.f_new.text()
@@ -639,6 +650,7 @@ class ChangePasswordPage(QWidget):
         QMessageBox.information(self, "Success", "Password changed successfully.")
 
     def _show_error(self, msg: str):
+        """Display an error message below the password fields."""
         self.error_lbl.setText(msg)
         self.error_lbl.setVisible(True)
 

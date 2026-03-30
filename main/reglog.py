@@ -22,16 +22,16 @@ class login(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-
+        """Build the login form layout with image, username/password fields, and login button."""
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
 
-        # LEFT SIDE (IMAGE)
+        # LEFT SIDE (image)
         self.left = QLabel()
         self.left.setScaledContents(True)
         self.left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.left.setPixmap(QPixmap(os.path.join(dir,"resorces","longneck.jpg")))
+        self.left.setPixmap(QPixmap(os.path.join(dir, "resorces", "longneck.jpg")))
 
         # RIGHT SIDE
         right_container = QWidget()
@@ -111,6 +111,7 @@ class login(QWidget):
         main_layout.addWidget(right_container, 2)
 
     def _on_login(self):
+        """Validate credentials and emit login_success or show an error message."""
         username = self.username.text().strip()
         password = self.password.text()
         if not username or not password:
@@ -140,6 +141,7 @@ class login(QWidget):
             self._show_error("Incorrect password. Please try again.")
 
     def _show_error(self, msg: str):
+        """Display an error message in the login form."""
         self.error_lbl.setText(msg)
         self.error_lbl.setVisible(True)
 
@@ -153,7 +155,7 @@ class register(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-
+        """Build the registration form layout with image, input fields, and register button."""
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
@@ -250,6 +252,7 @@ class register(QWidget):
         main_layout.addWidget(right_container, 2)
 
     def _on_register(self):
+        """Validate registration inputs, create the account, and redirect to login."""
         username = self.username.text().strip()
         email    = self.email.text().strip()
         password = self.password.text()
@@ -284,5 +287,6 @@ class register(QWidget):
         self.switch_to_login.emit()   # กลับไปหน้า login
 
     def _show_error(self, msg: str):
+        """Display an error message in the registration form."""
         self.error_lbl.setText(msg)
         self.error_lbl.setVisible(True)
