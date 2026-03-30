@@ -11,7 +11,7 @@ from PySide6.QtGui import QFont, QAction, QFontDatabase, QIcon
 
 from home import home
 from reglog import login, register
-from myprofile import AccountPage
+from account import account
 from store import StorePage
 from search import search
 from view import view
@@ -46,14 +46,14 @@ class MainWindow(QMainWindow):
         self.login = login()
         self.register = register()
         self.search = search()
-        self.profile = AccountPage()
+        self.account = account()
         self.store = StorePage()
         self.view = view()
         self.cart = cart()
         self.checkout = checkout()
 
         pages = [
-            self.home, self.login, self.register, self.profile,
+            self.home, self.login, self.register, self.account,
             self.store, self.search, self.view, self.cart, self.checkout
         ]
 
@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
         acc_menu = self.menuBar().addMenu("Account")
 
         myacc = QAction("My profile", self)
-        myacc.triggered.connect(lambda: self.go(self.profile))
+        myacc.triggered.connect(lambda: self.go(self.account))
         acc_menu.addAction(myacc)
 
         cart_btn = QAction("My Cart", self)
