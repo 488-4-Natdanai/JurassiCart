@@ -5,12 +5,17 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidge
     QSpinBox,QPushButton, QDialog, QMessageBox, QScrollArea,QFrame, QSizePolicy, QToolBar)
 from PySide6.QtCore import Qt, Signal, QDate, QSize
 from PySide6.QtGui import QFont, QAction, QPixmap, QFontDatabase, QIcon
+
+import database as db
+
 dir = os.path.dirname(os.path.abspath(__file__))
 dino_logo = os.path.join(dir, "resorces","dino2.png")
 juras_logo = os.path.join(dir, "resorces","JurassiLogo.png")
 
 class login(QWidget):
     switch_to_register = Signal()
+    login_success = Signal(dict)   # emits user dict on successful login
+
     def __init__(self, mainwindow=None):
         super().__init__()
         self.mainwindow = mainwindow
@@ -22,36 +27,21 @@ class login(QWidget):
         main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
 
-        # ------------------
         # LEFT SIDE (IMAGE)
-        # ------------------
         self.left = QLabel()
         self.left.setScaledContents(True)
         self.left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.left.setPixmap(QPixmap(os.path.join(dir,"resorces","longneck.jpg")))
 
-        self.pix = QPixmap(os.path.join(dir,"resorces","longneck.jpg"))  # เปลี่ยนรูปตรงนี้
-        self.left.setPixmap(self.pix)
-        
-
-        # ------------------
         # RIGHT SIDE
-        # ------------------
         right_container = QWidget()
         right_container.setStyleSheet("background:#eeeeee;")
-
         right_layout = QVBoxLayout(right_container)
         right_layout.setAlignment(Qt.AlignCenter)
 
-        # Login Card
         card = QFrame()
         card.setFixedSize(450, 500)
-        card.setStyleSheet("""
-        QFrame{
-            background:white;
-            border-radius:10px;
-        }
-        """)
-
+        card.setStyleSheet("QFrame{background:white;border-radius:10px;}")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0,0,0,20)
 
@@ -64,16 +54,10 @@ class login(QWidget):
         header.setFont(QFont(font_family, 12))
         header.setFixedHeight(60)
         header.setStyleSheet("""
-        QLabel{
-            background:#0b7a12;
-            color:white;
-            font-size:28px;
-            border-top-left-radius:10px;
-            border-top-right-radius:10px;
-        }
+            QLabel{background:#0b7a12;color:white;font-size:28px;
+                   border-top-left-radius:10px;border-top-right-radius:10px;}
         """)
 
-        # Inputs
         form = QVBoxLayout()
         form.setContentsMargins(30,20,30,10)
         form.setSpacing(15)
@@ -88,27 +72,23 @@ class login(QWidget):
         for box in [self.username, self.password]:
             box.setFixedHeight(45)
             box.setStyleSheet("""
-            QLineEdit{
-                border:1px solid #ccc;
-                border-radius:15px;
-                padding-left:10px;
-                background:#f3f3f3;
-            }
+                QLineEdit{border:1px solid #ccc;border-radius:15px;
+                          padding-left:10px;background:#f3f3f3;}
             """)
+
+        self.error_lbl = QLabel("")
+        self.error_lbl.setAlignment(Qt.AlignCenter)
+        self.error_lbl.setStyleSheet("color:#cc0000; font-size:9pt;")
+        self.error_lbl.setVisible(False)
 
         login_btn = QPushButton("LOGIN")
         login_btn.setFixedHeight(45)
         login_btn.setStyleSheet("""
-        QPushButton{
-            background:#0b7a12;
-            color:white;
-            font-weight:bold;
-            border-radius:8px;
-        }
-        QPushButton:hover{
-            background:#0d9416;
-        }
+            QPushButton{background:#0b7a12;color:white;font-weight:bold;border-radius:8px;}
+            QPushButton:hover{background:#0d9416;}
         """)
+        login_btn.clicked.connect(self._on_login)
+        self.password.returnPressed.connect(self._on_login)
 
         signup = QLabel("Don't have an account? <a href='#'>REGISTER</a>")
         signup.setAlignment(Qt.AlignCenter)
@@ -118,20 +98,55 @@ class login(QWidget):
 
         form.addWidget(self.username)
         form.addWidget(self.password)
+        form.addWidget(self.error_lbl)
         form.addWidget(login_btn)
         form.addWidget(signup)
         form.addStretch()
 
         card_layout.addWidget(header)
         card_layout.addLayout(form)
-
         right_layout.addWidget(card)
 
-        main_layout.addWidget(self.left,3)
-        main_layout.addWidget(right_container,2)
+        main_layout.addWidget(self.left, 3)
+        main_layout.addWidget(right_container, 2)
+
+    def _on_login(self):
+        username = self.username.text().strip()
+        password = self.password.text()
+        if not username or not password:
+            self._show_error("Please enter username and password.")
+            return
+
+        # เช็คก่อนว่า username มีใน DB ไหม
+        all_users = db._read(db.USERS_CSV)
+        exists = any(u["username"].lower() == username.lower() for u in all_users)
+        if not exists:
+            reply = QMessageBox.question(
+                self, "Account not found",
+                f"No account found for \"{username}\".\nWould you like to register?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self.switch_to_register.emit()
+            return
+
+        user = db.login_user(username, password)
+        if user:
+            self.error_lbl.setVisible(False)
+            self.username.clear()
+            self.password.clear()
+            self.login_success.emit(user)
+        else:
+            self._show_error("Incorrect password. Please try again.")
+
+    def _show_error(self, msg: str):
+        self.error_lbl.setText(msg)
+        self.error_lbl.setVisible(True)
 
 class register(QWidget):
     switch_to_login = Signal()
+    register_success = Signal(dict)   # emits user dict on successful register
+
     def __init__(self, mainwindow=None):
         super().__init__()
         self.mainwindow = mainwindow
@@ -143,36 +158,21 @@ class register(QWidget):
         main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
 
-        # ------------------
         # LEFT SIDE (IMAGE)
-        # ------------------
         self.left = QLabel()
         self.left.setScaledContents(True)
         self.left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.left.setPixmap(QPixmap(os.path.join(dir,"resorces","reg.jpg")))
 
-        self.pix = QPixmap(os.path.join(dir,"resorces","reg.jpg"))  # เปลี่ยนรูปตรงนี้
-        self.left.setPixmap(self.pix)
-        
-
-        # ------------------
         # RIGHT SIDE
-        # ------------------
         right_container = QWidget()
         right_container.setStyleSheet("background:#eeeeee;")
-
         right_layout = QVBoxLayout(right_container)
         right_layout.setAlignment(Qt.AlignCenter)
 
-        # Login Card
         card = QFrame()
-        card.setFixedSize(450, 500)
-        card.setStyleSheet("""
-        QFrame{
-            background:white;
-            border-radius:10px;
-        }
-        """)
-
+        card.setFixedSize(450, 540)
+        card.setStyleSheet("QFrame{background:white;border-radius:10px;}")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0,0,0,20)
 
@@ -185,22 +185,19 @@ class register(QWidget):
         header.setFont(QFont(font_family, 12))
         header.setFixedHeight(60)
         header.setStyleSheet("""
-        QLabel{
-            background:#0b7a12;
-            color:white;
-            font-size:28px;
-            border-top-left-radius:10px;
-            border-top-right-radius:10px;
-        }
+            QLabel{background:#0b7a12;color:white;font-size:28px;
+                   border-top-left-radius:10px;border-top-right-radius:10px;}
         """)
 
-        # Inputs
         form = QVBoxLayout()
         form.setContentsMargins(30,20,30,10)
-        form.setSpacing(15)
+        form.setSpacing(12)
 
         self.username = QLineEdit()
         self.username.setPlaceholderText("Username")
+
+        self.email = QLineEdit()
+        self.email.setPlaceholderText("Email (optional)")
 
         self.password = QLineEdit()
         self.password.setPlaceholderText("Password")
@@ -210,49 +207,82 @@ class register(QWidget):
         self.confirm.setPlaceholderText("Confirm password")
         self.confirm.setEchoMode(QLineEdit.Password)
 
-        for box in [self.username, self.password, self.confirm]:
+        for box in [self.username, self.email, self.password, self.confirm]:
             box.setFixedHeight(45)
             box.setStyleSheet("""
-            QLineEdit{
-                border:1px solid #ccc;
-                border-radius:15px;
-                padding-left:10px;
-                background:#f3f3f3;
-            }
+                QLineEdit{border:1px solid #ccc;border-radius:15px;
+                          padding-left:10px;background:#f3f3f3;}
             """)
+
+        self.error_lbl = QLabel("")
+        self.error_lbl.setAlignment(Qt.AlignCenter)
+        self.error_lbl.setStyleSheet("color:#cc0000; font-size:9pt;")
+        self.error_lbl.setVisible(False)
 
         register_btn = QPushButton("REGISTER")
         register_btn.setFixedHeight(45)
         register_btn.setStyleSheet("""
-        QPushButton{
-            background:#0b7a12;
-            color:white;
-            font-weight:bold;
-            border-radius:8px;
-        }
-        QPushButton:hover{
-            background:#0d9416;
-        }
+            QPushButton{background:#0b7a12;color:white;font-weight:bold;border-radius:8px;}
+            QPushButton:hover{background:#0d9416;}
         """)
+        register_btn.clicked.connect(self._on_register)
 
-        login = QLabel("Already have an account? <a href='#'>LOGIN</a>")
-        login.setAlignment(Qt.AlignCenter)
-        login.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        login.setOpenExternalLinks(False)
-        login.linkActivated.connect(lambda: self.switch_to_login.emit())
+        login_lbl = QLabel("Already have an account? <a href='#'>LOGIN</a>")
+        login_lbl.setAlignment(Qt.AlignCenter)
+        login_lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        login_lbl.setOpenExternalLinks(False)
+        login_lbl.linkActivated.connect(lambda: self.switch_to_login.emit())
 
         form.addWidget(self.username)
+        form.addWidget(self.email)
         form.addWidget(self.password)
         form.addWidget(self.confirm)
+        form.addWidget(self.error_lbl)
         form.addWidget(register_btn)
-        form.addWidget(login)
+        form.addWidget(login_lbl)
         form.addStretch()
 
         card_layout.addWidget(header)
         card_layout.addLayout(form)
-
         right_layout.addWidget(card)
 
-        main_layout.addWidget(self.left,3)
-        main_layout.addWidget(right_container,2)
-    
+        main_layout.addWidget(self.left, 3)
+        main_layout.addWidget(right_container, 2)
+
+    def _on_register(self):
+        username = self.username.text().strip()
+        email    = self.email.text().strip()
+        password = self.password.text()
+        confirm  = self.confirm.text()
+
+        if not username or not password:
+            self._show_error("Username and password are required.")
+            return
+        if len(password) < 6:
+            self._show_error("Password must be at least 6 characters.")
+            return
+        if password != confirm:
+            self._show_error("Passwords do not match.")
+            return
+
+        user = db.register_user(username, password, email)
+        if user is None:
+            self._show_error("Username already taken.")
+            return
+
+        # clear form
+        self.username.clear()
+        self.email.clear()
+        self.password.clear()
+        self.confirm.clear()
+        self.error_lbl.setVisible(False)
+
+        QMessageBox.information(
+            self, "Registration Successful",
+            f"Account \"{username}\" created!\nPlease log in."
+        )
+        self.switch_to_login.emit()   # กลับไปหน้า login
+
+    def _show_error(self, msg: str):
+        self.error_lbl.setText(msg)
+        self.error_lbl.setVisible(True)
