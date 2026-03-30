@@ -33,6 +33,7 @@ class DinoCard(QFrame):
         self._build()
 
     def _build(self):
+        """Build the card layout with image, name, meta info, and add-to-cart button."""
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 14)
         lay.setSpacing(0)
@@ -129,11 +130,11 @@ class home(QWidget):
         self._build_ui()
 
     def _build_ui(self):
+        """Build the scrollable grid layout for the home page."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(30, 20, 30, 20)
         outer.setSpacing(16)
 
-        # title row
         title_row = QHBoxLayout()
         title = QLabel("All Dinosaurs")
         title.setFont(QFont("Segoe UI", 18, QFont.Bold))
@@ -142,45 +143,67 @@ class home(QWidget):
         title_row.addStretch()
         outer.addLayout(title_row)
 
-        # scrollable grid
+        from PySide6.QtWidgets import QStackedWidget
+        self._stack = QStackedWidget()
+
+        # page 0 — grid of cards
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background:transparent;")
-
         self._grid_widget = QWidget()
         self._grid_widget.setStyleSheet("background:transparent;")
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(20)
         self._grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-
         scroll.setWidget(self._grid_widget)
-        outer.addWidget(scroll, stretch=1)
+        self._stack.addWidget(scroll)   # index 0
 
+        # page 1 — empty/no-results message
+        self._empty_lbl = QLabel()
+        self._empty_lbl.setAlignment(Qt.AlignCenter)
+        self._empty_lbl.setFont(QFont("Segoe UI", 13))
+        self._empty_lbl.setStyleSheet("color:#888;")
+        self._stack.addWidget(self._empty_lbl)   # index 1
+
+        outer.addWidget(self._stack, stretch=1)
         self.refresh()
 
-    def refresh(self, gene_filter: str = ""):
-        """Reload dinos from DB and rebuild grid. gene_filter='' means show all."""
+    def refresh(self, gene_filter: str = "", search: str = ""):
+        """Reload dino cards from the database, applying optional filter and search."""
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         dinos = db.get_all_dinosaurs()
+
         if gene_filter:
             dinos = [d for d in dinos if d.get("gene", "").lower() == gene_filter.lower()]
 
+        q = search.strip().lower()
+        if q:
+            dinos = [d for d in dinos if q in d["name"].lower()]
+
+        # newest first; out-of-stock goes to bottom
+        dinos.sort(key=lambda d: (int(d.get("stock", 0)) == 0, d.get("created_at", "")), reverse=False)
+        in_stock  = sorted([d for d in dinos if int(d.get("stock", 0)) > 0],
+                           key=lambda d: d.get("created_at", ""), reverse=True)
+        out_stock = sorted([d for d in dinos if int(d.get("stock", 0)) == 0],
+                           key=lambda d: d.get("created_at", ""), reverse=True)
+        dinos = in_stock + out_stock
+
         if not dinos:
-            empty = QLabel("No dinosaurs available yet." if not gene_filter
-                           else f"No {gene_filter} dinosaurs available.")
-            empty.setAlignment(Qt.AlignCenter)
-            empty.setFont(QFont("Segoe UI", 14))
-            empty.setStyleSheet("color:#888;")
-            self._grid.addWidget(empty, 0, 0)
+            msg = "No results found."
+            if q:
+                msg += "\nDouble-check your spelling — there might be a typo."
+            self._empty_lbl.setText(msg)
+            self._stack.setCurrentIndex(1)
             return
 
+        self._stack.setCurrentIndex(0)
         COLS = 4
         for i, dino in enumerate(dinos):
             card = DinoCard(dino)

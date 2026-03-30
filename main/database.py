@@ -108,6 +108,7 @@ def login_user(username: str, password: str) -> dict | None:
 
 
 def get_user(user_id: str) -> dict | None:
+    """Return user dict by user_id, or None if not found."""
     for u in _read(USERS_CSV):
         if u["user_id"] == user_id:
             return u
@@ -144,6 +145,7 @@ def add_wallet(user_id: str, amount: int) -> int:
 
 
 def get_wallet(user_id: str) -> int:
+    """Return the current wallet balance for a user."""
     u = get_user(user_id)
     return int(u["wallet"]) if u else 0
 
@@ -168,6 +170,7 @@ def create_store(user_id: str, store_name: str, description: str = "") -> dict |
 
 
 def get_store_by_user(user_id: str) -> dict | None:
+    """Return the store owned by the given user, or None."""
     for s in _read(STORES_CSV):
         if s["user_id"] == user_id:
             return s
@@ -175,6 +178,7 @@ def get_store_by_user(user_id: str) -> dict | None:
 
 
 def get_all_stores() -> list[dict]:
+    """Return all stores."""
     return _read(STORES_CSV)
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -184,6 +188,7 @@ def get_all_stores() -> list[dict]:
 def add_dinosaur(store_id: str, name: str, gene: str, gender: str,
                  age: int, color: str, price: int, stock: int,
                  image: str = "", description: str = "") -> dict:
+    """Add a new dinosaur listing to a store and return the created dict."""
     dino = {
         "dino_id":     _uid(),
         "store_id":    store_id,
@@ -212,10 +217,12 @@ def get_all_dinosaurs() -> list[dict]:
 
 
 def get_dinosaurs_by_store(store_id: str) -> list[dict]:
+    """Return all dinosaurs belonging to a specific store."""
     return [d for d in _read(DINOSAURS_CSV) if d["store_id"] == store_id]
 
 
 def get_dinosaur(dino_id: str) -> dict | None:
+    """Return a single dinosaur by ID, or None if not found."""
     for d in _read(DINOSAURS_CSV):
         if d["dino_id"] == dino_id:
             return d
@@ -223,6 +230,7 @@ def get_dinosaur(dino_id: str) -> dict | None:
 
 
 def update_dinosaur(dino_id: str, **fields) -> bool:
+    """Update arbitrary fields on a dinosaur record. Returns True on success."""
     rows = _read(DINOSAURS_CSV)
     updated = False
     for row in rows:
@@ -238,6 +246,7 @@ def update_dinosaur(dino_id: str, **fields) -> bool:
 
 
 def delete_dinosaur(dino_id: str) -> bool:
+    """Delete a dinosaur by ID. Returns True if a record was removed."""
     rows = _read(DINOSAURS_CSV)
     new_rows = [r for r in rows if r["dino_id"] != dino_id]
     if len(new_rows) < len(rows):
@@ -374,14 +383,17 @@ def create_order(user_id: str, items: list[dict], shipping: dict, deduct_wallet:
 
 
 def get_orders_by_user(user_id: str) -> list[dict]:
+    """Return all orders placed by a user."""
     return [o for o in _read(ORDERS_CSV) if o["user_id"] == user_id]
 
 
 def get_order_items(order_id: str) -> list[dict]:
+    """Return all line items for a given order."""
     return [i for i in _read(ORDER_ITEMS_CSV) if i["order_id"] == order_id]
 
 
 def update_order_status(order_id: str, status: str) -> bool:
+    """Update the status field of an order. Returns True on success."""
     rows = _read(ORDERS_CSV)
     for row in rows:
         if row["order_id"] == order_id:
@@ -427,6 +439,7 @@ def add_to_cart(user_id: str, dino: dict) -> dict:
 
 
 def update_cart_qty(cart_id: str, qty: int) -> bool:
+    """Set the quantity of a cart item; removes it if qty <= 0. Returns True on success."""
     rows = _read(CART_CSV)
     for row in rows:
         if row["cart_id"] == cart_id:
@@ -440,6 +453,7 @@ def update_cart_qty(cart_id: str, qty: int) -> bool:
 
 
 def remove_from_cart(cart_id: str) -> bool:
+    """Remove a single item from the cart by cart_id. Returns True if removed."""
     rows = _read(CART_CSV)
     new_rows = [r for r in rows if r["cart_id"] != cart_id]
     if len(new_rows) < len(rows):
