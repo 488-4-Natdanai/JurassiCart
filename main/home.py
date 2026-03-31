@@ -45,6 +45,14 @@ class DinoCard(QFrame):
         img_lbl.setStyleSheet("background:#e8e8e8; border-radius:12px 12px 0 0;")
 
         img_path = self.dino.get("image", "")
+        # auto-resolve by dino name if no image set
+        if not img_path or not os.path.exists(img_path):
+            name = self.dino.get("name", "")
+            for ext in [".jpg", ".png", ".avif"]:
+                candidate = os.path.join(_dir, "resorces", name + ext)
+                if os.path.exists(candidate):
+                    img_path = candidate
+                    break
         px = QPixmap(img_path) if img_path and os.path.exists(img_path) else QPixmap(_dino_placeholder)
         if not px.isNull():
             img_lbl.setPixmap(px.scaled(260, 160, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))

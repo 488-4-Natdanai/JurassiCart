@@ -508,6 +508,14 @@ class AddStockTab(QWidget):
 
         # save to DB if store_id is set
         if self._store_id:
+            # copy image to resorces/ named after the dino
+            img_dest = ""
+            if new_item["image"] and os.path.exists(new_item["image"]):
+                ext = os.path.splitext(new_item["image"])[-1]
+                img_dest = os.path.join(dir_path, "resorces", name + ext)
+                import shutil
+                shutil.copy2(new_item["image"], img_dest)
+
             db.add_dinosaur(
                 store_id=self._store_id,
                 name=name,
@@ -517,7 +525,7 @@ class AddStockTab(QWidget):
                 color=new_item["color"],
                 price=int(cleaned),
                 stock=self.qty_spin.value(),
-                image=new_item["image"],
+                image=img_dest,
             )
         else:
             self._data.append(new_item)
