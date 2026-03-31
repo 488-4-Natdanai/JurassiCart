@@ -1,5 +1,5 @@
 dino_id,store_id,name,gene,gender,age,color,price,stock,image,description,created_at
-a20fa722,a87436f2,Tyrannosaurus Rex,Carnivore,Male,8,#2d7a2d,25000000,3,,"The apex predator. Massive jaws, tiny arms, maximum attitude.",2026-03-31 00:46:16
+a20fa722,a87436f2,Tyrannosaurus Rex,Carnivore,Male,8,#2d7a2d,25000000,2,,"The apex predator. Massive jaws, tiny arms, maximum attitude.",2026-03-31 00:46:16
 60f7b3c6,a87436f2,Triceratops,Herbivore,Female,12,#8b6914,18000000,7,,Three-horned gentle giant. Great for garden patrol.,2026-03-31 00:46:16
 dd641681,a87436f2,Velociraptor,Carnivore,Male,3,#c8a000,12000000,10,,Highly intelligent pack hunter. Requires experienced owner.,2026-03-31 00:46:16
 df8c064f,a87436f2,Brachiosaurus,Herbivore,Female,20,#4a7c59,40000000,3,,"Tallest dino available. Eats treetops, very calm temperament.",2026-03-31 00:46:16

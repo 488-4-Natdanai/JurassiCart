@@ -125,6 +125,62 @@ class MainWindow(QMainWindow):
         self.current_user = None
         self.go(self.home)
 
+    def _on_feedback(self):
+        """Show feedback dialog and save message to database."""
+        from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
+                                       QLabel, QTextEdit, QPushButton)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Give Feedback")
+        dlg.setFixedSize(420, 260)
+        dlg.setStyleSheet("background:white;")
+
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(24, 20, 24, 20)
+        lay.setSpacing(12)
+
+        lbl = QLabel("We'd love to hear your thoughts!")
+        lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        lbl.setStyleSheet("color:#111;")
+        lay.addWidget(lbl)
+
+        txt = QTextEdit()
+        txt.setPlaceholderText("Write your feedback here...")
+        txt.setFont(QFont("Segoe UI", 10))
+        txt.setStyleSheet("border:1px solid #ccc;border-radius:8px;padding:8px;")
+        lay.addWidget(txt, stretch=1)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setFixedSize(90, 34)
+        cancel_btn.setStyleSheet("""
+            QPushButton{background:#e0e0e0;border:none;border-radius:8px;color:#333;}
+            QPushButton:hover{background:#ccc;}
+        """)
+        cancel_btn.clicked.connect(dlg.reject)
+        btn_row.addWidget(cancel_btn)
+
+        ok_btn = QPushButton("OK")
+        ok_btn.setFixedSize(90, 34)
+        ok_btn.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        ok_btn.setStyleSheet("""
+            QPushButton{background:#0b7a12;border:none;border-radius:8px;color:white;}
+            QPushButton:hover{background:#095e0e;}
+        """)
+        ok_btn.clicked.connect(dlg.accept)
+        btn_row.addWidget(ok_btn)
+        lay.addLayout(btn_row)
+
+        if dlg.exec() == QDialog.Accepted:
+            msg = txt.toPlainText().strip()
+            if msg:
+                uid   = self.current_user["user_id"]  if self.current_user else "guest"
+                uname = self.current_user["username"] if self.current_user else "guest"
+                db.add_feedback(uid, uname, msg)
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(self, "Thank you!", "Your feedback has been submitted.")
+
     def _show_filter_menu(self):
         """Show filter dropdown below the filter button."""
         btn = self.filter_btn
@@ -204,6 +260,10 @@ class MainWindow(QMainWindow):
         quit_btn = QAction("Quit", self)
         quit_btn.triggered.connect(sys.exit)
         edit_menu.addAction(quit_btn)
+
+        feedback_btn = QAction("Give Feedback", self)
+        feedback_btn.triggered.connect(self._on_feedback)
+        edit_menu.addAction(feedback_btn)
 
         nav_menu = self.menuBar().addMenu("Navigation")
 
