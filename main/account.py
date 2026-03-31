@@ -390,19 +390,32 @@ class PurchaseDialog(QDialog):
         # Checkbox & Terms
         agree_layout = QHBoxLayout()
         self.checkbox = QCheckBox()
-        self.checkbox.setStyleSheet("""
-            QCheckBox::indicator {
+        # generate checkmark icon programmatically
+        from PySide6.QtGui import QPainter, QPen
+        chk_px = QPixmap(20, 20)
+        chk_px.fill(Qt.transparent)
+        p = QPainter(chk_px)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor("white"), 2.5))
+        p.drawLine(3, 10, 8, 15)
+        p.drawLine(8, 15, 17, 5)
+        p.end()
+        chk_icon_path = os.path.join(_DIR, "resorces", "_check.png")
+        chk_px.save(chk_icon_path)
+
+        self.checkbox.setStyleSheet(f"""
+            QCheckBox::indicator {{
                 width: 20px;
                 height: 20px;
-                border: 2px solid #555555;
-                background-color: #ffffff;
+                border: 2px solid #555;
+                background: white;
                 border-radius: 4px;
-            }
-            QCheckBox::indicator:checked {
+            }}
+            QCheckBox::indicator:checked {{
                 border: 2px solid #2e7d32;
-                background-color: #f5f5f5;
-                image: url(check.png); 
-            }
+                background: #2e7d32;
+                image: url({chk_icon_path.replace(os.sep, '/')});
+            }}
         """)
         self.checkbox.setCursor(Qt.PointingHandCursor)
         
