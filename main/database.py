@@ -21,6 +21,7 @@ DINOSAURS_CSV   = os.path.join(_DB_DIR, "dinosaurs.csv")
 ORDERS_CSV      = os.path.join(_DB_DIR, "orders.csv")
 ORDER_ITEMS_CSV = os.path.join(_DB_DIR, "order_items.csv")
 CART_CSV        = os.path.join(_DB_DIR, "cart.csv")
+FEEDBACK_CSV    = os.path.join(_DB_DIR, "feedback.csv")
 
 # ── schema definitions ───────────────────────────────────────────────────────
 _SCHEMAS = {
@@ -34,6 +35,7 @@ _SCHEMAS = {
     ORDER_ITEMS_CSV: ["item_id", "order_id", "dino_id", "dino_name", "qty", "unit_price"],
     CART_CSV:        ["cart_id", "user_id", "dino_id", "dino_name", "gene",
                       "color", "price", "qty"],
+    FEEDBACK_CSV:    ["feedback_id", "user_id", "username", "message", "created_at"],
 }
 
 # ── internal helpers ─────────────────────────────────────────────────────────
@@ -466,3 +468,24 @@ def clear_cart(user_id: str):
     """Remove all cart items for a user (called after order placed)."""
     rows = [r for r in _read(CART_CSV) if r["user_id"] != user_id]
     _write(CART_CSV, rows)
+
+# ════════════════════════════════════════════════════════════════════════════
+#  FEEDBACK
+# ════════════════════════════════════════════════════════════════════════════
+
+def add_feedback(user_id: str, username: str, message: str) -> dict:
+    """Save a feedback message to the database."""
+    row = {
+        "feedback_id": _uid(),
+        "user_id":     user_id,
+        "username":    username,
+        "message":     message,
+        "created_at":  _now(),
+    }
+    _append(FEEDBACK_CSV, row)
+    return row
+
+
+def get_all_feedback() -> list[dict]:
+    """Return all feedback entries."""
+    return _read(FEEDBACK_CSV)
