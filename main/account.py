@@ -274,27 +274,20 @@ class ProfilePage(QWidget):
         avatar_layout = QVBoxLayout()
         avatar_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         avatar_layout.setSpacing(14)
-        avatar_lbl = QLabel()
-        try:
-            avatar_pixmap = QPixmap(USER_AVATAR_PATH).scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            if avatar_pixmap.isNull():
-                print(f"Error: Could not load user avatar from {USER_AVATAR_PATH}")
-                px = QPixmap(120, 120); px.fill(QColor("#ddd"))
-                avatar_lbl.setPixmap(px)
-            else:
-                avatar_lbl.setPixmap(avatar_pixmap)
-        except Exception as e:
-            print(f"Error loading user avatar: {e}")
-            px = QPixmap(120, 120); px.fill(QColor("#ddd"))
-            avatar_lbl.setPixmap(px)
 
-        avatar_lbl.setAlignment(Qt.AlignCenter)
-        avatar_layout.addWidget(avatar_lbl)
+        self.avatar_lbl = QLabel()
+        self.avatar_lbl.setFixedSize(120, 120)
+        self.avatar_lbl.setAlignment(Qt.AlignCenter)
+        self.avatar_lbl.setStyleSheet("background:#ddd; border-radius:60px;")
+        self._set_avatar_pixmap(USER_AVATAR_PATH)
+
+        avatar_layout.addWidget(self.avatar_lbl)
         select_btn = QPushButton("Select Image")
         select_btn.setFixedSize(120, 34)
         select_btn.setFont(QFont("Segoe UI", 9))
         select_btn.setCursor(Qt.PointingHandCursor)
         select_btn.setStyleSheet(OVAL_BTN_OUTLINE.format(r=17))
+        select_btn.clicked.connect(self._on_select_avatar)
         avatar_layout.addWidget(select_btn, alignment=Qt.AlignHCenter)
         avatar_layout.addStretch()
 
@@ -307,6 +300,32 @@ class ProfilePage(QWidget):
         self.fields["name"].setText(user.get("name", ""))
         self.fields["email"].setText(user.get("email", ""))
         self.fields["phone"].setText(user.get("phone", ""))
+        avatar = user.get("avatar", "")
+        self._set_avatar_pixmap(avatar if avatar and os.path.exists(avatar) else USER_AVATAR_PATH)
+
+    def _set_avatar_pixmap(self, path: str):
+        """Load and display avatar image, fallback to grey circle."""
+        px = QPixmap(path).scaled(120, 120, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation) if path else QPixmap()
+        if px.isNull():
+            px = QPixmap(120, 120); px.fill(QColor("#ddd"))
+        self.avatar_lbl.setPixmap(px)
+
+    def _on_select_avatar(self):
+        """Open file dialog, copy selected image to resorces/avatars/, save to DB."""
+        from PySide6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Avatar", "", "Images (*.png *.jpg *.jpeg *.bmp *.webp)")
+        if not path:
+            return
+        import shutil
+        avatar_dir = os.path.join(_DIR, "resorces", "avatars")
+        os.makedirs(avatar_dir, exist_ok=True)
+        ext = os.path.splitext(path)[-1]
+        dest = os.path.join(avatar_dir, f"{self._user_id}{ext}")
+        shutil.copy2(path, dest)
+        self._set_avatar_pixmap(dest)
+        if self._user_id:
+            db.update_user(self._user_id, avatar=dest)
 
     def _on_save(self):
         """Save updated profile fields to the database and show a confirmation dialog."""
@@ -390,25 +409,40 @@ class PurchaseDialog(QDialog):
         # Checkbox & Terms
         agree_layout = QHBoxLayout()
         self.checkbox = QCheckBox()
-        self.checkbox.setStyleSheet("""
-            QCheckBox::indicator {
+        # generate checkmark icon programmatically
+        from PySide6.QtGui import QPainter, QPen
+        chk_px = QPixmap(20, 20)
+        chk_px.fill(Qt.transparent)
+        p = QPainter(chk_px)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor("white"), 2.5))
+        p.drawLine(3, 10, 8, 15)
+        p.drawLine(8, 15, 17, 5)
+        p.end()
+        chk_icon_path = os.path.join(_DIR, "resorces", "_check.png")
+        chk_px.save(chk_icon_path)
+
+        self.checkbox.setStyleSheet(f"""
+            QCheckBox::indicator {{
                 width: 20px;
                 height: 20px;
-                border: 2px solid #555555;
-                background-color: #ffffff;
+                border: 2px solid #555;
+                background: white;
                 border-radius: 4px;
-            }
-            QCheckBox::indicator:checked {
+            }}
+            QCheckBox::indicator:checked {{
                 border: 2px solid #2e7d32;
-                background-color: #f5f5f5;
-                image: url(check.png); 
-            }
+                background: #2e7d32;
+                image: url({chk_icon_path.replace(os.sep, '/')});
+            }}
         """)
         self.checkbox.setCursor(Qt.PointingHandCursor)
         
-        lbl_terms = QLabel("I agree to the terms of the <u>JurassiCart purchase agreement</u>")
+        lbl_terms = QLabel('I agree to the terms of the <a href="https://youtu.be/dQw4w9WgXcQ?si=gR7vhtV4-cmOPb_U" style="color:#1565c0;"><u>JurassiCart purchase agreement</u></a>')
         lbl_terms.setFont(QFont("Segoe UI", 9))
         lbl_terms.setStyleSheet("color: #222;")
+        lbl_terms.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        lbl_terms.setOpenExternalLinks(True)
         
         agree_layout.addWidget(self.checkbox)
         agree_layout.addWidget(lbl_terms)
@@ -576,10 +610,10 @@ class ChangePasswordPage(QWidget):
         forget_lbl = QLabel('Forget password?  ')
         forget_lbl.setFont(QFont("Segoe UI", 9))
         forget_lbl.setStyleSheet("color:#555;")
-        contact_lbl = QLabel('<a href="https://jurassicart.com/contact" style="color:#1565c0;">contact us</a>')
+        contact_lbl = QLabel('<a href="https://youtu.be/dQw4w9WgXcQ?si=gR7vhtV4-cmOPb_U" style="color:#1565c0;">contact us</a>')
         contact_lbl.setFont(QFont("Segoe UI", 9))
         contact_lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        contact_lbl.setOpenExternalLinks(False)   # กดแล้วไม่มีอะไรเกิดขึ้นก่อน
+        contact_lbl.setOpenExternalLinks(True)
         forget_row.addWidget(forget_lbl)
         forget_row.addWidget(contact_lbl)
         forget_row.addStretch()
